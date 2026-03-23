@@ -47,12 +47,29 @@ def create_product(product: schemas.ProductCreate, db: Session = Depends(get_db)
     return crud.create_product(db=db, product=product)
 
 # Skaner shu API'ga so'rov yuboradi
-@app.get("/products/scan/{barcode}", response_model=schemas.Product)
+@app.get("/products/scan/{barcode}")
 def scan_product(barcode: str, db: Session = Depends(get_db)):
+    # 1. Mahsulotni topamiz
     db_product = crud.get_product_by_barcode(db, barcode=barcode)
     if db_product is None:
         raise HTTPException(status_code=404, detail="Mahsulot topilmadi")
-    return db_product
+
+    # 2. Ombordan shu mahsulotning eng oxirgi kiritilgan narxini qidiramiz
+    inventory = db.query(models.Inventory).filter(models.Inventory.product_id == db_product.id).order_by(
+        models.Inventory.id.desc()).first()
+
+    # Agar omborda bo'lsa haqiqiy narxni, bo'lmasa 0 ni olamiz
+    current_price = inventory.selling_price if inventory else 0.0
+
+    # 3. Frontend'ga nomini va narxini qo'shib jo'natamiz
+    return {
+        "id": db_product.id,
+        "barcode": db_product.barcode,
+        "name": db_product.name,
+        "unit": db_product.unit,
+        "category_id": db_product.category_id,
+        "price": current_price  # <--- Haqiqiy narx qo'shildi!
+    }
 
 
 # --- SAVDO VA CHEK API'LARI ---
@@ -74,3 +91,12 @@ def add_to_inventory(inventory: schemas.InventoryCreate, db: Session = Depends(g
     Bu yerda kelish narxi, sotish narxi va miqdori kiritiladi.
     """
     return crud.create_inventory(db=db, inventory=inventory)
+
+
+# --- HISOBOTLAR API'LARI ---
+@app.get("/reports/dashboard")
+def get_dashboard_data(db: Session = Depends(get_db)):
+    """
+    Admin panel uchun asosiy statistikalarni qaytaradi.
+    """
+    return crud.get_dashboard_stats(db)

@@ -62,3 +62,4 @@ class SaleItem(Base):
     price = Column(Float)  # Chek urilgan paytdagi narx (tarix uchun)
 
     sale = relationship("Sale", back_populates="items")
+    product = relationship("Product")

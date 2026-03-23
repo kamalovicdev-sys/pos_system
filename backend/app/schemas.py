@@ -66,6 +66,7 @@ class SaleItemResponse(BaseModel):
     product_id: int
     quantity: float
     price: float
+    product: Product
 
     model_config = {"from_attributes": True}
 

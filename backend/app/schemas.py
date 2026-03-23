@@ -45,3 +45,37 @@ class Inventory(InventoryBase):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# --- CHEK VA SAVDO SXEMALARI ---
+
+# React'dan keladigan bitta mahsulot ma'lumoti
+class SaleItemCreate(BaseModel):
+    product_id: int
+    quantity: float
+
+
+# React'dan keladigan to'liq chek ma'lumoti (savat)
+class SaleCreate(BaseModel):
+    payment_type: str  # 'cash' yoki 'card'
+    items: List[SaleItemCreate]
+
+
+# Backend'dan React'ga qaytuvchi tayyor chek ichidagi mahsulot
+class SaleItemResponse(BaseModel):
+    product_id: int
+    quantity: float
+    price: float
+
+    model_config = {"from_attributes": True}
+
+
+# Tayyor to'liq chek (Printerga yuborish uchun)
+class SaleResponse(BaseModel):
+    id: int
+    total_amount: float
+    payment_type: str
+    created_at: datetime
+    items: List[SaleItemResponse]
+
+    model_config = {"from_attributes": True}

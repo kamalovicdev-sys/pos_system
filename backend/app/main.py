@@ -53,3 +53,24 @@ def scan_product(barcode: str, db: Session = Depends(get_db)):
     if db_product is None:
         raise HTTPException(status_code=404, detail="Mahsulot topilmadi")
     return db_product
+
+
+# --- SAVDO VA CHEK API'LARI ---
+@app.post("/sales/", response_model=schemas.SaleResponse)
+def checkout(sale: schemas.SaleCreate, db: Session = Depends(get_db)):
+    """
+    Kassadan savdoni amalga oshirish va chek shakllantirish.
+    Frontend bu yerga mahsulotlar ro'yxati va to'lov turini yuboradi.
+    """
+    # Chek yaratiladi va ombor qoldig'i avtomatik yangilanadi
+    return crud.create_sale(db=db, sale_data=sale)
+
+
+# --- OMBOR (INVENTORY) API'LARI ---
+@app.post("/inventory/", response_model=schemas.Inventory)
+def add_to_inventory(inventory: schemas.InventoryCreate, db: Session = Depends(get_db)):
+    """
+    Yangi kelgan tovarlarni omborga kiritish (Prixod qilish).
+    Bu yerda kelish narxi, sotish narxi va miqdori kiritiladi.
+    """
+    return crud.create_inventory(db=db, inventory=inventory)

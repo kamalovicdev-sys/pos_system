@@ -14,7 +14,6 @@ function App() {
   const [total, setTotal] = useState(0);
   const [receiptData, setReceiptData] = useState(null);
 
-  // Nasiya savdo uchun state'lar
   const [isCredit, setIsCredit] = useState(false);
   const [customerName, setCustomerName] = useState('');
 
@@ -58,7 +57,6 @@ function App() {
               : item
           );
         } else {
-          // Haqiqiy narx bazadan keladi
           return [...prevCart, {
             product_id: product.id,
             name: product.name,
@@ -70,20 +68,19 @@ function App() {
 
       setBarcode('');
     } catch (error) {
-      alert("Mahsulot topilmadi!");
+      alert("Product not found or unavailable.");
       setBarcode('');
     }
   };
 
   const handleCheckout = async (paymentType) => {
     if (cart.length === 0) {
-      alert("Savat bo'sh! Iltimos, oldin mahsulot skanerlang.");
+      alert("Cart is empty. Please scan items.");
       return;
     }
 
-    // Nasiya tanlangan bo'lsa, ism kiritilishi shart
     if (isCredit && !customerName.trim()) {
-      alert("Iltimos, qarzga olayotgan mijoz ismini kiriting!");
+      alert("Customer name is required for credit transactions.");
       return;
     }
 
@@ -101,7 +98,6 @@ function App() {
       const response = await axios.post(`${API_URL}/sales/`, saleData);
       setReceiptData(response.data);
 
-      // Kassani tozalash va Nasiya sozlamalarini o'chirish
       setCart([]);
       setBarcode('');
       setIsCredit(false);
@@ -110,180 +106,221 @@ function App() {
       if (activeTab === 'pos') barcodeInputRef.current?.focus();
 
     } catch (error) {
-      console.error("Savdoda xatolik:", error);
-      alert("To'lovni amalga oshirishda xatolik yuz berdi. Server ishlab turganini tekshiring.");
+      console.error("Checkout error:", error);
+      alert("Transaction failed. Please check server connection.");
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-20 relative">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
 
-      {/* 1. KASSA OYNASI */}
-      {activeTab === 'pos' && (
-        <div className="p-4 flex gap-4 print:hidden">
+      {/* CORPORATE TOP NAVIGATION */}
+      <nav className="bg-slate-900 text-slate-200 border-b border-slate-700 print:hidden">
+        <div className="max-w-screen-2xl mx-auto px-4">
+          <div className="flex justify-between h-14">
 
-          <div className="w-2/3 bg-white rounded-lg shadow-md p-6 flex flex-col" style={{ minHeight: 'calc(100vh - 7rem)' }}>
-            <h2 className="text-2xl font-bold mb-4 text-gray-800">Savdo oynasi</h2>
+            <div className="flex items-center gap-8">
+              <span className="font-bold text-sm tracking-widest text-white uppercase">
+                Enterprise POS
+              </span>
 
-            <form onSubmit={handleScan} className="mb-6">
-              <input
-                ref={barcodeInputRef}
-                type="text"
-                value={barcode}
-                onChange={(e) => setBarcode(e.target.value)}
-                placeholder="Shtrix kodni skanerlang..."
-                className="w-full p-4 border-2 border-blue-500 rounded-lg text-lg focus:outline-none focus:ring-4 focus:ring-blue-200"
-              />
-            </form>
-
-            <div className="flex-grow overflow-y-auto">
-              <table className="w-full text-left">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="p-3">Mahsulot</th>
-                    <th className="p-3">Soni</th>
-                    <th className="p-3">Narxi</th>
-                    <th className="p-3">Jami</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cart.map((item, index) => (
-                    <tr key={index} className="border-b hover:bg-gray-50">
-                      <td className="p-3 text-lg font-bold text-gray-800">{item.name}</td>
-                      <td className="p-3 text-lg font-bold">{item.quantity}</td>
-                      <td className="p-3 text-lg">{item.price.toLocaleString()} so'm</td>
-                      <td className="p-3 text-lg font-bold text-blue-600">
-                        {(item.price * item.quantity).toLocaleString()} so'm
-                      </td>
-                    </tr>
-                  ))}
-                  {cart.length === 0 && (
-                    <tr>
-                      <td colSpan="4" className="p-10 text-center text-gray-400">
-                        Savat bo'sh. Mahsulot skanerlang.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="w-1/3 bg-white rounded-lg shadow-md p-6 flex flex-col justify-between" style={{ minHeight: 'calc(100vh - 7rem)' }}>
-            <div>
-              <h3 className="text-xl font-bold text-gray-700 mb-6">Jami Hisob</h3>
-              <div className="bg-gray-100 p-6 rounded-lg text-center">
-                <p className="text-gray-500 text-sm mb-2">To'lanishi kerak:</p>
-                <p className="text-5xl font-extrabold text-green-600">
-                  {total.toLocaleString()} <span className="text-2xl">so'm</span>
-                </p>
-              </div>
-
-              {/* NASIYA (QARZ) BO'LIMI */}
-              <div className="mt-6 border-t pt-4">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isCredit}
-                    onChange={(e) => setIsCredit(e.target.checked)}
-                    className="w-6 h-6 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-lg font-bold text-gray-700">Mijozga Nasiyaga (Qarzga) berish</span>
-                </label>
-
-                {isCredit && (
-                  <div className="mt-3 animate-fade-in">
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Mijozning ismini yozing..."
-                      className="w-full p-3 border-2 border-orange-300 rounded-lg focus:outline-none focus:border-orange-500 bg-orange-50"
-                    />
-                  </div>
-                )}
-              </div>
-
-            </div>
-
-            <div className="flex flex-col gap-4 mt-8">
-              {/* Mana shu yerda xato to'g'irlandi: Ikkitalik qo'shtirnoq ishlatildi */}
-              <button
-                onClick={() => handleCheckout('cash')}
-                className={`w-full font-bold py-4 rounded-lg text-xl transition shadow-lg text-white ${isCredit ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-500 hover:bg-green-600'}`}>
-                {isCredit ? "📝 Nasiya qilib yozish" : "💵 Naqd To'lov"}
-              </button>
-
-              {!isCredit && (
+              <div className="flex space-x-1">
                 <button
-                  onClick={() => handleCheckout('card')}
-                  className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-lg text-xl transition shadow-lg">
-                  💳 Plastik To'lov
+                  onClick={() => setActiveTab('pos')}
+                  className={`px-4 py-4 text-xs font-semibold tracking-wide uppercase transition-colors duration-150 ${
+                    activeTab === 'pos' 
+                      ? 'bg-slate-800 text-white border-b-2 border-blue-500' 
+                      : 'hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  Terminal
                 </button>
-              )}
-
-              <button
-                onClick={() => {
-                  setCart([]);
-                  setBarcode('');
-                  setIsCredit(false);
-                  setCustomerName('');
-                  setReceiptData(null);
-                  barcodeInputRef.current?.focus();
-                }}
-                className="w-full bg-red-100 hover:bg-red-200 text-red-600 font-bold py-3 rounded-lg mt-4 transition">
-                🗑 Savatni tozalash
-              </button>
+                <button
+                  onClick={() => setActiveTab('inventory')}
+                  className={`px-4 py-4 text-xs font-semibold tracking-wide uppercase transition-colors duration-150 ${
+                    activeTab === 'inventory' 
+                      ? 'bg-slate-800 text-white border-b-2 border-blue-500' 
+                      : 'hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  Inventory Management
+                </button>
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`px-4 py-4 text-xs font-semibold tracking-wide uppercase transition-colors duration-150 ${
+                    activeTab === 'dashboard' 
+                      ? 'bg-slate-800 text-white border-b-2 border-blue-500' 
+                      : 'hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  Business Analytics
+                </button>
+              </div>
             </div>
+
+            <div className="flex items-center">
+              <span className="text-xs font-medium text-slate-400">User: System Admin</span>
+            </div>
+
           </div>
         </div>
-      )}
+      </nav>
 
-      {/* 2. OMBOR (PRIXOD) OYNASI */}
-      {activeTab === 'inventory' && (
-        <div className="print:hidden">
+      {/* MAIN CONTENT AREA */}
+      <main className="max-w-screen-2xl mx-auto p-4 print:hidden">
+
+        {/* 1. KASSA OYNASI (POS TERMINAL) */}
+        {activeTab === 'pos' && (
+          <div className="flex gap-4">
+
+            {/* CHAP TOMON: Savatcha */}
+            <div className="w-8/12 bg-white border border-slate-200 shadow-sm rounded-sm flex flex-col" style={{ minHeight: 'calc(100vh - 6rem)' }}>
+              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
+                <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Sales Processing</h2>
+              </div>
+
+              <div className="p-6 flex-grow flex flex-col">
+                <form onSubmit={handleScan} className="mb-6">
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Barcode Entry</label>
+                  <input
+                    ref={barcodeInputRef}
+                    type="text"
+                    value={barcode}
+                    onChange={(e) => setBarcode(e.target.value)}
+                    placeholder="Enter or scan barcode..."
+                    className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none transition-shadow"
+                  />
+                </form>
+
+                <div className="flex-grow overflow-y-auto border border-slate-200 rounded-sm">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-100 text-slate-600 border-b border-slate-200 text-xs uppercase">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">Material Description</th>
+                        <th className="px-4 py-3 font-semibold w-24">Qty</th>
+                        <th className="px-4 py-3 font-semibold w-32">Unit Price</th>
+                        <th className="px-4 py-3 font-semibold w-32 text-right">Net Value</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {cart.map((item, index) => (
+                        <tr key={index} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3 text-slate-800 font-medium">{item.name}</td>
+                          <td className="px-4 py-3 text-slate-800">{item.quantity}</td>
+                          <td className="px-4 py-3 text-slate-600">{item.price.toLocaleString()} UZS</td>
+                          <td className="px-4 py-3 text-slate-900 font-semibold text-right">
+                            {(item.price * item.quantity).toLocaleString()} UZS
+                          </td>
+                        </tr>
+                      ))}
+                      {cart.length === 0 && (
+                        <tr>
+                          <td colSpan="4" className="px-4 py-12 text-center text-sm text-slate-400">
+                            No materials scanned.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* O'NG TOMON: Hisob-kitob */}
+            <div className="w-4/12 bg-white border border-slate-200 shadow-sm rounded-sm flex flex-col justify-between" style={{ minHeight: 'calc(100vh - 6rem)' }}>
+
+              <div>
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
+                  <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Transaction Details</h3>
+                </div>
+
+                <div className="p-6">
+                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-sm text-right mb-6">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Total Amount Due</p>
+                    <p className="text-3xl font-bold text-slate-900">
+                      {total.toLocaleString()} <span className="text-lg font-medium text-slate-500">UZS</span>
+                    </p>
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-6">
+                    <label className="flex items-center gap-2 cursor-pointer mb-3">
+                      <input
+                        type="checkbox"
+                        checked={isCredit}
+                        onChange={(e) => setIsCredit(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded-sm focus:ring-blue-500 focus:ring-2"
+                      />
+                      <span className="text-sm font-semibold text-slate-700">Process as Credit Document</span>
+                    </label>
+
+                    {isCredit && (
+                      <div className="mt-2">
+                        <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Customer Account / Name</label>
+                        <input
+                          type="text"
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          placeholder="Enter Customer Details"
+                          className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-slate-100 bg-slate-50 flex flex-col gap-3">
+                <button
+                  onClick={() => handleCheckout('cash')}
+                  className={`w-full font-semibold text-sm px-5 py-3 rounded-sm transition-colors ${
+                    isCredit 
+                      ? 'bg-slate-800 hover:bg-slate-900 text-white' 
+                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                  }`}>
+                  {isCredit ? 'Post Credit Document' : 'Post Cash Payment'}
+                </button>
+
+                {!isCredit && (
+                  <button
+                    onClick={() => handleCheckout('card')}
+                    className="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold text-sm px-5 py-3 rounded-sm transition-colors shadow-sm">
+                    Post Card Payment
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    setCart([]);
+                    setBarcode('');
+                    setIsCredit(false);
+                    setCustomerName('');
+                    setReceiptData(null);
+                    barcodeInputRef.current?.focus();
+                  }}
+                  className="w-full mt-2 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold text-sm px-5 py-3 rounded-sm transition-colors">
+                  Cancel Transaction
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* 2. OMBOR (INVENTORY) */}
+        {activeTab === 'inventory' && (
           <Inventory />
-        </div>
-      )}
+        )}
 
-      {/* 3. ADMIN DASHBOARD OYNASI */}
-      {activeTab === 'dashboard' && (
-        <div className="print:hidden">
+        {/* 3. BIZNES ANALITIKA (DASHBOARD) */}
+        {activeTab === 'dashboard' && (
           <Dashboard />
-        </div>
-      )}
+        )}
+
+      </main>
 
       {/* CHEK KOMPONENTI */}
       <div className="hidden print:block">
         <Receipt receiptData={receiptData} />
-      </div>
-
-      {/* PASTKI NAVIGATSIYA MENYUSI */}
-      <div className="fixed bottom-0 left-0 w-full bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] flex border-t border-gray-200 print:hidden z-50">
-        <button
-          onClick={() => setActiveTab('pos')}
-          className={`flex-1 py-5 text-xl font-bold transition-all duration-200 ${
-            activeTab === 'pos' ? 'bg-blue-600 text-white shadow-inner' : 'bg-white text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          🛒 Kassa Oynasi
-        </button>
-        <button
-          onClick={() => setActiveTab('inventory')}
-          className={`flex-1 py-5 text-xl font-bold transition-all duration-200 ${
-            activeTab === 'inventory' ? 'bg-blue-600 text-white shadow-inner' : 'bg-white text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          📦 Ombor (Prixod)
-        </button>
-        <button
-          onClick={() => setActiveTab('dashboard')}
-          className={`flex-1 py-5 text-xl font-bold transition-all duration-200 ${
-            activeTab === 'dashboard' ? 'bg-blue-600 text-white shadow-inner' : 'bg-white text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          📊 Admin Hisobotlar
-        </button>
       </div>
 
     </div>

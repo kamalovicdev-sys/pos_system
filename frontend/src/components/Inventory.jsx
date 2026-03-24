@@ -13,10 +13,8 @@ const Inventory = () => {
   const [newCategoryName, setNewCategoryName] = useState('');
 
   const [newProduct, setNewProduct] = useState({ name: '', unit: 'dona', category_id: '' });
-
   const [inventoryData, setInventoryData] = useState({ quantity: '', cost_price: '', selling_price: '' });
 
-  // YANGI: Nasiyaga olish uchun state'lar
   const [isCredit, setIsCredit] = useState(false);
   const [supplierName, setSupplierName] = useState('');
 
@@ -29,7 +27,7 @@ const Inventory = () => {
           setNewProduct(prev => ({ ...prev, category_id: res.data[0].id }));
         }
       } catch (error) {
-        console.error("Kategoriyalarni yuklashda xatolik");
+        console.error("Error loading categories");
       }
     };
     fetchCategories();
@@ -44,7 +42,7 @@ const Inventory = () => {
       setIsAddingCategory(false);
       setNewCategoryName('');
     } catch (error) {
-      alert("Kategoriya yaratishda xatolik yuz berdi!");
+      alert("Category creation failed!");
     }
   };
 
@@ -60,7 +58,7 @@ const Inventory = () => {
       if (error.response && error.response.status === 404) {
         setStep('new_product');
       } else {
-        alert("Xatolik yuz berdi. Serverni tekshiring.");
+        alert("System error. Check server connection.");
       }
     }
   };
@@ -68,7 +66,7 @@ const Inventory = () => {
   const handleCreateProduct = async (e) => {
     e.preventDefault();
     if (!barcode.trim()) {
-      alert("Iltimos, shtrix-kodni kiriting!");
+      alert("Barcode is required.");
       return;
     }
 
@@ -83,9 +81,9 @@ const Inventory = () => {
       setStep('add_inventory');
     } catch (error) {
       if (error.response && error.response.status === 400) {
-        alert("Bu shtrix-kod allaqachon ro'yxatdan o'tgan!");
+        alert("Barcode already exists in the master data.");
       } else {
-        alert("Mahsulot yaratishda xatolik!");
+        alert("Product registration failed.");
       }
     }
   };
@@ -94,7 +92,7 @@ const Inventory = () => {
     e.preventDefault();
 
     if (isCredit && !supplierName.trim()) {
-      alert("Iltimos, qarzga berayotgan ta'minotchi ismini kiriting!");
+      alert("Supplier/Vendor name is required for credit transactions.");
       return;
     }
 
@@ -104,11 +102,11 @@ const Inventory = () => {
         quantity: parseFloat(inventoryData.quantity),
         cost_price: parseFloat(inventoryData.cost_price),
         selling_price: parseFloat(inventoryData.selling_price),
-        is_credit: isCredit,          // Nasiya holati
-        supplier_name: supplierName   // Ta'minotchi ismi
+        is_credit: isCredit,
+        supplier_name: supplierName
       });
 
-      alert(`✅ ${product.name} muvaffaqiyatli omborga qo'shildi!`);
+      alert(`Goods Receipt posted successfully for: ${product.name}`);
 
       setBarcode('');
       setProduct(null);
@@ -117,27 +115,31 @@ const Inventory = () => {
       setSupplierName('');
       setStep('scan');
     } catch (error) {
-      alert("Omborga kiritishda xatolik yuz berdi!");
+      alert("Inventory posting failed.");
     }
   };
 
   return (
-    <div className="p-6 w-full max-w-3xl mx-auto">
-      <h2 className="text-3xl font-bold mb-8 text-gray-800 flex items-center gap-3">
-        📦 Tovar qabul qilish va Ro'yxatdan o'tkazish
-      </h2>
+    <div className="w-full max-w-4xl mx-auto pb-12">
+      <div className="mb-6">
+        <h2 className="text-xl font-bold text-slate-800 uppercase tracking-wide">Inventory Management</h2>
+        <p className="text-sm text-slate-500">Goods Receipt & Master Data Registration</p>
+      </div>
 
-      <div className="bg-white p-8 rounded-xl shadow-md border border-gray-100">
+      <div className="bg-white border border-slate-200 shadow-sm rounded-sm">
 
+        {/* ================= STEP 1: SCAN OR ADD ================= */}
         {step === 'scan' && (
-          <div>
-            <div className="flex justify-between items-end mb-4">
-              <label className="text-gray-700 font-bold text-lg">Shtrix-kod orqali qidirish:</label>
+          <div className="p-8">
+            <div className="flex justify-between items-end mb-6">
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Material Barcode Lookup
+              </label>
               <button
                 onClick={() => { setBarcode(''); setStep('new_product'); }}
-                className="bg-green-100 hover:bg-green-200 text-green-700 font-bold py-2 px-4 rounded-lg transition"
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 uppercase tracking-wide transition-colors"
               >
-                + Yangi mahsulot qo'shish
+                + Register New Material
               </button>
             </div>
 
@@ -146,136 +148,149 @@ const Inventory = () => {
                 type="text"
                 value={barcode}
                 onChange={(e) => setBarcode(e.target.value)}
-                placeholder="Skanerlang yoki kiriting..."
-                className="flex-1 p-4 border-2 border-gray-300 rounded-lg text-xl focus:border-blue-500 focus:outline-none"
+                placeholder="Enter or scan barcode..."
+                className="flex-1 p-3 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none"
                 autoFocus
               />
-              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-xl transition shadow-md">
-                Qidirish
+              <button type="submit" className="bg-slate-800 hover:bg-slate-900 text-white font-semibold text-sm px-8 py-3 rounded-sm transition-colors">
+                Execute
               </button>
             </form>
           </div>
         )}
 
+        {/* ================= STEP 2: NEW PRODUCT ================= */}
         {step === 'new_product' && (
-          <form onSubmit={handleCreateProduct} className="flex flex-col gap-5 animate-fade-in">
-            <h3 className="text-xl font-bold text-gray-800 border-b pb-2 mb-2">Yangi mahsulotni ro'yxatdan o'tkazish</h3>
+          <form onSubmit={handleCreateProduct} className="p-8">
+            <div className="border-b border-slate-200 pb-4 mb-6">
+              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Create Material Master Record</h3>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
-                <label className="block text-gray-700 font-bold mb-2">Shtrix-kod (Yoki ixtiyoriy raqam)</label>
-                <input required type="text" value={barcode} onChange={e => setBarcode(e.target.value)} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-blue-50 font-mono" placeholder="123456789..." />
+                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Material Number / Barcode</label>
+                <input required type="text" value={barcode} onChange={e => setBarcode(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-300 text-slate-900 text-sm font-mono rounded-sm focus:ring-1 focus:ring-blue-600 outline-none" placeholder="E.g., 123456789" />
               </div>
               <div>
-                <label className="block text-gray-700 font-bold mb-2">Mahsulot nomi</label>
-                <input required type="text" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masalan: Qora non" />
+                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Material Description</label>
+                <input required type="text" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 outline-none" placeholder="E.g., Premium Widget" />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-6 mb-8">
               <div>
-                <label className="block text-gray-700 font-bold mb-2">O'lchov birligi</label>
-                <select value={newProduct.unit} onChange={e => setNewProduct({...newProduct, unit: e.target.value})} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                  <option value="dona">Dona</option>
-                  <option value="kg">Kilogramm (kg)</option>
-                  <option value="litr">Litr (l)</option>
+                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Base Unit of Measure</label>
+                <select value={newProduct.unit} onChange={e => setNewProduct({...newProduct, unit: e.target.value})} className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 outline-none">
+                  <option value="dona">Piece (PC)</option>
+                  <option value="kg">Kilogram (KG)</option>
+                  <option value="litr">Liter (L)</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-gray-700 font-bold mb-2">Kategoriyasi</label>
+                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Material Group (Category)</label>
                 {isAddingCategory ? (
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={newCategoryName}
                       onChange={e => setNewCategoryName(e.target.value)}
-                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                      placeholder="Nomini yozing..."
+                      className="flex-1 p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 outline-none"
+                      placeholder="Category name..."
                       autoFocus
                     />
-                    <button type="button" onClick={handleCreateCategory} className="bg-green-500 hover:bg-green-600 text-white px-4 rounded-lg font-bold transition">✓</button>
-                    <button type="button" onClick={() => setIsAddingCategory(false)} className="bg-red-400 hover:bg-red-500 text-white px-4 rounded-lg font-bold transition">✕</button>
+                    <button type="button" onClick={handleCreateCategory} className="bg-slate-800 hover:bg-slate-900 text-white px-4 text-xs font-semibold rounded-sm">Save</button>
+                    <button type="button" onClick={() => setIsAddingCategory(false)} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-4 text-xs font-semibold rounded-sm">Cancel</button>
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    <select required value={newProduct.category_id} onChange={e => setNewProduct({...newProduct, category_id: e.target.value})} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    <select required value={newProduct.category_id} onChange={e => setNewProduct({...newProduct, category_id: e.target.value})} className="flex-1 p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 outline-none">
                       {categories.map(cat => (
                         <option key={cat.id} value={cat.id}>{cat.name}</option>
                       ))}
-                      {categories.length === 0 && <option value="">Kategoriya yo'q</option>}
+                      {categories.length === 0 && <option value="">No Groups Found</option>}
                     </select>
-                    <button type="button" onClick={() => setIsAddingCategory(true)} className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 rounded-lg font-bold text-xl transition" title="Yangi kategoriya yaratish">+</button>
+                    <button type="button" onClick={() => setIsAddingCategory(true)} className="bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 px-3 rounded-sm font-bold text-sm" title="New Category">+</button>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="flex gap-4 mt-4">
-              <button type="button" onClick={() => { setStep('scan'); setBarcode(''); setIsAddingCategory(false); }} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 rounded-lg transition">Bekor qilish</button>
-              <button type="submit" className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition shadow-md">Saqlash va Davom etish ➡️</button>
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+              <button type="button" onClick={() => { setStep('scan'); setBarcode(''); setIsAddingCategory(false); }} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold text-sm px-6 py-2.5 rounded-sm transition-colors">Cancel</button>
+              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-6 py-2.5 rounded-sm transition-colors">Save & Proceed</button>
             </div>
           </form>
         )}
 
+        {/* ================= STEP 3: GOODS RECEIPT ================= */}
         {step === 'add_inventory' && product && (
-          <form onSubmit={handleAddInventory} className="flex flex-col gap-5">
-            <h3 className="text-xl font-bold text-gray-800 border-b pb-2 mb-2">Mahsulotni omborga qabul qilish</h3>
-
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 flex justify-between items-center">
-              <div>
-                <p className="text-sm text-blue-600 font-bold uppercase">Tanlangan mahsulot:</p>
-                <p className="text-2xl font-bold text-gray-800">{product.name}</p>
-              </div>
-              <span className="bg-white px-3 py-1 rounded shadow-sm text-sm border font-mono">{product.barcode}</span>
+          <form onSubmit={handleAddInventory} className="p-8">
+            <div className="border-b border-slate-200 pb-4 mb-6">
+              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Post Goods Receipt</h3>
             </div>
 
-            <div>
-              <label className="block text-gray-700 font-bold mb-2">Kelgan soni / hajmi ({product.unit})</label>
-              <input required type="number" step="0.01" value={inventoryData.quantity} onChange={e => setInventoryData({...inventoryData, quantity: e.target.value})} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-bold text-xl" placeholder="0" autoFocus />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            <div className="bg-slate-50 p-4 border border-slate-200 rounded-sm flex justify-between items-center mb-6">
               <div>
-                <label className="block text-gray-700 font-bold mb-2">Kelish narxi (Tan narx)</label>
-                <input required type="number" value={inventoryData.cost_price} onChange={e => setInventoryData({...inventoryData, cost_price: e.target.value})} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="so'm" />
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Target Material</p>
+                <p className="text-lg font-bold text-slate-800">{product.name}</p>
               </div>
-              <div>
-                <label className="block text-gray-700 font-bold mb-2">Sotish narxi (Kassa uchun)</label>
-                <input required type="number" value={inventoryData.selling_price} onChange={e => setInventoryData({...inventoryData, selling_price: e.target.value})} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="so'm" />
+              <div className="text-right">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Material No.</p>
+                <span className="font-mono text-sm font-semibold text-slate-700">{product.barcode}</span>
               </div>
             </div>
 
-            {/* NASIYAGA OLISH BO'LIMI */}
-            <div className="mt-2 border-t pt-4">
+            <div className="mb-6">
+              <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Receipt Quantity ({product.unit})</label>
+              <input required type="number" step="0.01" value={inventoryData.quantity} onChange={e => setInventoryData({...inventoryData, quantity: e.target.value})} className="w-full p-3 bg-white border border-slate-300 text-slate-900 text-lg font-semibold rounded-sm focus:ring-1 focus:ring-blue-600 outline-none" placeholder="0.00" autoFocus />
+            </div>
+
+            <div className="grid grid-cols-2 gap-6 mb-6">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Unit Cost (Moving Average)</label>
+                <div className="relative">
+                  <input required type="number" value={inventoryData.cost_price} onChange={e => setInventoryData({...inventoryData, cost_price: e.target.value})} className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 outline-none pr-12" placeholder="0" />
+                  <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">UZS</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Standard Sales Price</label>
+                <div className="relative">
+                  <input required type="number" value={inventoryData.selling_price} onChange={e => setInventoryData({...inventoryData, selling_price: e.target.value})} className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 outline-none pr-12" placeholder="0" />
+                  <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">UZS</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-8 p-4 border border-slate-200 bg-white rounded-sm">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={isCredit}
                   onChange={(e) => setIsCredit(e.target.checked)}
-                  className="w-6 h-6 text-red-600 rounded focus:ring-red-500"
+                  className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded-sm focus:ring-blue-500"
                 />
-                <span className="text-lg font-bold text-gray-700">Ta'minotchidan Nasiyaga (Qarzga) olish</span>
+                <span className="text-sm font-semibold text-slate-700">Vendor Credit / Accounts Payable</span>
               </label>
 
               {isCredit && (
-                <div className="mt-3 animate-fade-in">
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Vendor Name / ID</label>
                   <input
                     type="text"
                     value={supplierName}
                     onChange={(e) => setSupplierName(e.target.value)}
-                    placeholder="Ta'minotchi (Firma yoki Shaxs) ismini yozing..."
-                    className="w-full p-3 border-2 border-red-300 rounded-lg focus:outline-none focus:border-red-500 bg-red-50"
+                    placeholder="Enter Vendor Details"
+                    className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 outline-none"
                   />
                 </div>
               )}
             </div>
 
-            <div className="flex gap-4 mt-4">
-              <button type="button" onClick={() => {setStep('scan'); setBarcode('');}} className="w-1/3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-4 rounded-lg transition">Ortga</button>
-              <button type="submit" className={`w-2/3 text-white font-bold py-4 rounded-lg text-xl transition shadow-lg ${isCredit ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-500 hover:bg-green-600'}`}>
-                {isCredit ? '📝 Nasiyaga Qabul Qilish' : '📥 Omborga Qabul Qilish'}
-              </button>
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+              <button type="button" onClick={() => {setStep('scan'); setBarcode('');}} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold text-sm px-6 py-2.5 rounded-sm transition-colors">Cancel Posting</button>
+              <button type="submit" className="bg-slate-800 hover:bg-slate-900 text-white font-semibold text-sm px-6 py-2.5 rounded-sm transition-colors">Post Document</button>
             </div>
           </form>
         )}

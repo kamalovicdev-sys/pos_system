@@ -104,3 +104,8 @@ class SaleResponse(BaseModel):
     items: List[SaleItemResponse]
 
     model_config = {"from_attributes": True}
+
+# --- QARZ TO'LOVLARI UCHUN SXEMA ---
+class DebtPaymentCreate(BaseModel):
+    name: str
+    amount: float

@@ -1,11 +1,9 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from datetime import datetime  # <--- Sana filtri uchun qo'shildi
 from . import models, schemas
 
 
-# ==========================================
-# KATEGORIYALAR UCHUN MANTIQ
-# ==========================================
 def create_category(db: Session, category: schemas.CategoryCreate):
     db_category = models.Category(name=category.name)
     db.add(db_category)
@@ -18,9 +16,6 @@ def get_categories(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Category).offset(skip).limit(limit).all()
 
 
-# ==========================================
-# MAHSULOTLAR (KATALOG) UCHUN MANTIQ
-# ==========================================
 def create_product(db: Session, product: schemas.ProductCreate):
     db_product = models.Product(**product.model_dump())
     db.add(db_product)
@@ -29,16 +24,11 @@ def create_product(db: Session, product: schemas.ProductCreate):
     return db_product
 
 
-# Skaner uchun eng asosiy funksiya: shtrix-kod bo'yicha qidirish
 def get_product_by_barcode(db: Session, barcode: str):
     return db.query(models.Product).filter(models.Product.barcode == barcode).first()
 
 
-# ==========================================
-# OMBOR (INVENTORY - PRIXOD) MANTIG'I
-# ==========================================
 def create_inventory(db: Session, inventory: schemas.InventoryCreate):
-    # Mahsulotni omborga qabul qilish (shu jumladan nasiyaga olingan bo'lsa)
     db_inventory = models.Inventory(**inventory.model_dump())
     db.add(db_inventory)
     db.commit()
@@ -46,11 +36,7 @@ def create_inventory(db: Session, inventory: schemas.InventoryCreate):
     return db_inventory
 
 
-# ==========================================
-# SAVDO (KASSA VA CHEK) MANTIG'I
-# ==========================================
 def create_sale(db: Session, sale_data: schemas.SaleCreate):
-    # 1. Avval bo'sh chek yaratib olamiz (Nasiya va Mijoz ismini ham qo'shib)
     db_sale = models.Sale(
         payment_type=sale_data.payment_type,
         total_amount=0,
@@ -63,37 +49,30 @@ def create_sale(db: Session, sale_data: schemas.SaleCreate):
 
     total_amount = 0.0
 
-    # 2. Savatchadagi har bir mahsulotni aylanib chiqamiz
     for item in sale_data.items:
-        # Mahsulotning eng oxirgi narxini va qoldig'ini Inventory'dan qidiramiz
         inventory = db.query(models.Inventory).filter(models.Inventory.product_id == item.product_id).order_by(
             models.Inventory.id.desc()).first()
 
-        # Agar mahsulot omborda bor bo'lsa
         if inventory:
             price = inventory.selling_price
-            cost_price = inventory.cost_price  # P&L hisoboti uchun tan narxni olib qolamiz
-            # Ombor qoldig'ini ayiramiz
+            cost_price = inventory.cost_price
             inventory.quantity -= item.quantity
         else:
             price = 0.0
             cost_price = 0.0
 
-            # Qator summasi = narx * soni
         line_total = price * item.quantity
         total_amount += line_total
 
-        # Chek ichiga mahsulotni yozamiz
         db_sale_item = models.SaleItem(
             sale_id=db_sale.id,
             product_id=item.product_id,
             quantity=item.quantity,
             price=price,
-            cost_price=cost_price  # Foydani hisoblash uchun bazaga yozamiz
+            cost_price=cost_price
         )
         db.add(db_sale_item)
 
-    # 3. Jami summani yangilab, o'zgarishlarni bazaga saqlaymiz
     db_sale.total_amount = total_amount
     db.commit()
     db.refresh(db_sale)
@@ -101,56 +80,103 @@ def create_sale(db: Session, sale_data: schemas.SaleCreate):
     return db_sale
 
 
-# ==========================================
-# BIZNES ANALITIKA VA DASHBOARD MANTIG'I
-# ==========================================
-def get_dashboard_stats(db: Session):
+def pay_customer_debt(db: Session, payment: schemas.DebtPaymentCreate):
+    db_pay = models.CustomerPayment(customer_name=payment.name, amount=payment.amount)
+    db.add(db_pay)
+    db.commit()
+    return db_pay
+
+
+def pay_supplier_debt(db: Session, payment: schemas.DebtPaymentCreate):
+    db_pay = models.SupplierPayment(supplier_name=payment.name, amount=payment.amount)
+    db.add(db_pay)
+    db.commit()
+    return db_pay
+
+
+# --- BIZNES ANALITIKA (SANA FILTRI BILAN) ---
+def get_dashboard_stats(db: Session, start_date: str = None, end_date: str = None):
+    # Dastlab barcha jadvallar uchun so'rovlarni tayyorlab olamiz
+    sales_query = db.query(models.Sale)
+    inv_query = db.query(models.Inventory)
+    cust_pay_query = db.query(models.CustomerPayment)
+    supp_pay_query = db.query(models.SupplierPayment)
+
+    # Agar Boshlanish sanasi kiritilgan bo'lsa (soat 00:00:00 dan)
+    if start_date:
+        start_dt = datetime.strptime(f"{start_date} 00:00:00", "%Y-%m-%d %H:%M:%S")
+        sales_query = sales_query.filter(models.Sale.created_at >= start_dt)
+        inv_query = inv_query.filter(models.Inventory.created_at >= start_dt)
+        cust_pay_query = cust_pay_query.filter(models.CustomerPayment.created_at >= start_dt)
+        supp_pay_query = supp_pay_query.filter(models.SupplierPayment.created_at >= start_dt)
+
+    # Agar Tugash sanasi kiritilgan bo'lsa (soat 23:59:59 gacha)
+    if end_date:
+        end_dt = datetime.strptime(f"{end_date} 23:59:59", "%Y-%m-%d %H:%M:%S")
+        sales_query = sales_query.filter(models.Sale.created_at <= end_dt)
+        inv_query = inv_query.filter(models.Inventory.created_at <= end_dt)
+        cust_pay_query = cust_pay_query.filter(models.CustomerPayment.created_at <= end_dt)
+        supp_pay_query = supp_pay_query.filter(models.SupplierPayment.created_at <= end_dt)
+
     # 1. P&L (Daromad, Xarajat va Sof Foyda)
-    sales = db.query(models.Sale).all()
+    sales = sales_query.all()
     total_revenue = sum(sale.total_amount for sale in sales)
 
-    sale_items = db.query(models.SaleItem).all()
-    # Jami xarajat (Tan narx * Sotilgan soni)
+    sale_ids = [s.id for s in sales]
+    if sale_ids:
+        sale_items = db.query(models.SaleItem).filter(models.SaleItem.sale_id.in_(sale_ids)).all()
+    else:
+        sale_items = []
+
     total_cogs = sum(item.cost_price * item.quantity for item in sale_items)
-    # Sof foyda
     net_profit = total_revenue - total_cogs
 
-    # 2. Bizga qarzlar (Nasiyaga berilgan mahsulotlar)
-    customer_debts = [
-        {
-            "customer": sale.customer_name,
-            "amount": sale.total_amount,
-            "date": sale.created_at
-        }
-        for sale in sales if sale.is_credit
-    ]
-    total_customer_debt = sum(d["amount"] for d in customer_debts)
+    # 2. MIJOZLAR QARZI (Shu sanalar oralig'idagi o'zgarishlar)
+    credit_sales = [s for s in sales if s.is_credit]
+    customer_payments = cust_pay_query.all()
 
-    # 3. Bizning qarzlar (Ta'minotchidan nasiyaga olingan tovarlar)
-    inventories = db.query(models.Inventory).all()
-    supplier_debts = [
-        {
-            "supplier": inv.supplier_name,
-            "product": inv.product.name,
-            "amount": inv.quantity * inv.cost_price,
-            "date": inv.created_at
-        }
-        for inv in inventories if inv.is_credit
-    ]
-    total_supplier_debt = sum(d["amount"] for d in supplier_debts)
+    customer_balances = {}
+    for sale in credit_sales:
+        name = sale.customer_name or "Noma'lum"
+        customer_balances[name] = customer_balances.get(name, 0) + sale.total_amount
 
-    # 4. Low stock (Omborda 10 tadan kam qolgan mahsulotlar)
+    for pay in customer_payments:
+        name = pay.customer_name
+        if name in customer_balances:
+            customer_balances[name] -= pay.amount
+        else:
+            customer_balances[name] = -pay.amount  # Agar qarzni oldin olganu, to'lovni hozir qilgan bo'lsa
+
+    customer_debts = [{"name": k, "balance": v} for k, v in customer_balances.items() if v != 0]
+    total_customer_debt = sum(d["balance"] for d in customer_debts)
+
+    # 3. TA'MINOTCHI QARZI
+    inventories = inv_query.all()
+    credit_invs = [i for i in inventories if i.is_credit]
+    supplier_payments = supp_pay_query.all()
+
+    supplier_balances = {}
+    for inv in credit_invs:
+        name = inv.supplier_name or "Noma'lum"
+        supplier_balances[name] = supplier_balances.get(name, 0) + (inv.quantity * inv.cost_price)
+
+    for pay in supplier_payments:
+        name = pay.supplier_name
+        if name in supplier_balances:
+            supplier_balances[name] -= pay.amount
+        else:
+            supplier_balances[name] = -pay.amount
+
+    supplier_debts = [{"name": k, "balance": v} for k, v in supplier_balances.items() if v != 0]
+    total_supplier_debt = sum(d["balance"] for d in supplier_debts)
+
+    # 4. Low stock (Bu har doim umumiy ombor holatini ko'rsatadi, sanaga bog'lanmaydi)
     low_stock_query = db.query(models.Inventory).filter(models.Inventory.quantity <= 10).all()
     low_stock_items = [
-        {
-            "product_name": item.product.name,
-            "quantity": item.quantity,
-            "selling_price": item.selling_price
-        }
+        {"product_name": item.product.name, "quantity": item.quantity, "selling_price": item.selling_price}
         for item in low_stock_query
     ]
 
-    # Frontend kutayotgan formatda qaytaramiz
     return {
         "pl_analysis": {
             "revenue": total_revenue,

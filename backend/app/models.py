@@ -70,3 +70,19 @@ class SaleItem(Base):
 
     sale = relationship("Sale", back_populates="items")
     product = relationship("Product")
+
+class CustomerPayment(Base):
+    """Mijozlar qarzini uzganda saqlanadigan jadval"""
+    __tablename__ = "customer_payments"
+    id = Column(Integer, primary_key=True, index=True)
+    customer_name = Column(String, index=True)
+    amount = Column(Float)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class SupplierPayment(Base):
+    """Biz ta'minotchiga qarz uzganda saqlanadigan jadval"""
+    __tablename__ = "supplier_payments"
+    id = Column(Integer, primary_key=True, index=True)
+    supplier_name = Column(String, index=True)
+    amount = Column(Float)
+    created_at = Column(DateTime, default=datetime.utcnow)

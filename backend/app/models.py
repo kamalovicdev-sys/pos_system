@@ -32,11 +32,14 @@ class Inventory(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"))
-    quantity = Column(Float, default=0.0)  # Ombordagi qoldiq
-    cost_price = Column(Float)  # Kelish narxi (tan narx)
-    selling_price = Column(Float)  # Kassa uchun sotish narxi
-    expiry_date = Column(DateTime, nullable=True)  # Yaroqlilik muddati
-    created_at = Column(DateTime, default=datetime.utcnow)  # Partiya kelgan vaqt
+    quantity = Column(Float, default=0.0)
+    cost_price = Column(Float)
+    selling_price = Column(Float)
+    expiry_date = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    is_credit = Column(Boolean, default=False)
+    supplier_name = Column(String, nullable=True)
 
     product = relationship("Product", back_populates="inventories")
 
@@ -46,8 +49,11 @@ class Sale(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     total_amount = Column(Float, default=0.0)
-    payment_type = Column(String)  # 'cash' (naqd) yoki 'card' (plastik)
+    payment_type = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    is_credit = Column(Boolean, default=False)
+    customer_name = Column(String, nullable=True)
 
     items = relationship("SaleItem", back_populates="sale")
 
@@ -59,7 +65,8 @@ class SaleItem(Base):
     sale_id = Column(Integer, ForeignKey("sales.id"))
     product_id = Column(Integer, ForeignKey("products.id"))
     quantity = Column(Float)
-    price = Column(Float)  # Chek urilgan paytdagi narx (tarix uchun)
+    price = Column(Float)
+    cost_price = Column(Float, default=0.0)
 
     sale = relationship("Sale", back_populates="items")
     product = relationship("Product")

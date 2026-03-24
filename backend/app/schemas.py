@@ -2,17 +2,21 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 
+
 # --- KATEGORIYA SXEMALARI ---
 class CategoryBase(BaseModel):
     name: str
 
+
 class CategoryCreate(CategoryBase):
     pass
+
 
 class Category(CategoryBase):
     id: int
 
     model_config = {"from_attributes": True}
+
 
 # --- MAHSULOT SXEMALARI ---
 class ProductBase(BaseModel):
@@ -21,13 +25,16 @@ class ProductBase(BaseModel):
     unit: str
     category_id: int
 
+
 class ProductCreate(ProductBase):
     pass
+
 
 class Product(ProductBase):
     id: int
 
     model_config = {"from_attributes": True}
+
 
 # --- OMBOR (INVENTORY) SXEMALARI ---
 class InventoryBase(BaseModel):
@@ -37,8 +44,14 @@ class InventoryBase(BaseModel):
     selling_price: float
     expiry_date: Optional[datetime] = None
 
+    # YANGI: Nasiya va Ta'minotchi ma'lumotlari
+    is_credit: bool = False
+    supplier_name: Optional[str] = None
+
+
 class InventoryCreate(InventoryBase):
     pass
+
 
 class Inventory(InventoryBase):
     id: int
@@ -58,6 +71,11 @@ class SaleItemCreate(BaseModel):
 # React'dan keladigan to'liq chek ma'lumoti (savat)
 class SaleCreate(BaseModel):
     payment_type: str  # 'cash' yoki 'card'
+
+    # YANGI: Nasiya va Mijoz ma'lumotlari
+    is_credit: bool = False
+    customer_name: Optional[str] = None
+
     items: List[SaleItemCreate]
 
 
@@ -66,7 +84,8 @@ class SaleItemResponse(BaseModel):
     product_id: int
     quantity: float
     price: float
-    product: Product
+    cost_price: float = 0.0  # Sof foydani hisoblash uchun
+    product: Product  # Mahsulotning to'liq obyekti (nomi chiqishi uchun)
 
     model_config = {"from_attributes": True}
 
@@ -76,6 +95,11 @@ class SaleResponse(BaseModel):
     id: int
     total_amount: float
     payment_type: str
+
+    # YANGI: Nasiya ma'lumotlari qaytishi uchun
+    is_credit: bool
+    customer_name: Optional[str] = None
+
     created_at: datetime
     items: List[SaleItemResponse]
 

@@ -4,14 +4,9 @@ import axios from 'axios';
 const API_URL = 'http://127.0.0.1:8000';
 
 const Dashboard = () => {
-  const [stats, setStats] = useState({
-    total_revenue: 0,
-    total_sales_count: 0,
-    low_stock_items: []
-  });
+  const [stats, setStats] = useState(null);
 
   useEffect(() => {
-    // Sahifa ochilganda backenddan statistikalarni tortib olamiz
     const fetchStats = async () => {
       try {
         const response = await axios.get(`${API_URL}/reports/dashboard`);
@@ -20,39 +15,94 @@ const Dashboard = () => {
         console.error("Hisobotlarni yuklashda xatolik:", error);
       }
     };
-
     fetchStats();
   }, []);
 
-  return (
-    <div className="p-6 w-full">
-      <h2 className="text-3xl font-bold mb-8 text-gray-800">Do'kon Statistikasi</h2>
+  if (!stats) return <div className="p-10 text-center text-xl text-gray-500">Analitika yuklanmoqda...</div>;
 
-      {/* Asosiy ko'rsatkichlar (Cards) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
-          <p className="text-gray-500 text-sm font-semibold uppercase">Jami Tushum</p>
-          <p className="text-4xl font-bold text-gray-800 mt-2">
-            {stats.total_revenue.toLocaleString()} so'm
-          </p>
+  return (
+    <div className="p-6 w-full max-w-7xl mx-auto pb-24">
+      <h2 className="text-3xl font-bold mb-8 text-gray-800">📊 Biznes Analitika (P&L va Nasiya)</h2>
+
+      {/* 1. P&L (PROFIT & LOSS) QISMI */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
+          <p className="text-gray-500 text-sm font-bold uppercase mb-1">Jami Tushum (Aylanma)</p>
+          <p className="text-3xl font-black text-blue-700">{stats.pl_analysis.revenue.toLocaleString()} so'm</p>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
-          <p className="text-gray-500 text-sm font-semibold uppercase">Xaridlar Soni (Cheklar)</p>
-          <p className="text-4xl font-bold text-gray-800 mt-2">
-            {stats.total_sales_count} ta
-          </p>
+        <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-orange-500">
+          <p className="text-gray-500 text-sm font-bold uppercase mb-1">Tovarlar Tan Narxi (COGS)</p>
+          <p className="text-3xl font-black text-orange-600">- {stats.pl_analysis.cogs.toLocaleString()} so'm</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-xl shadow-lg text-white">
+          <p className="text-green-100 text-sm font-bold uppercase mb-1">Sof Foyda (Net Profit)</p>
+          <p className="text-4xl font-black">{stats.pl_analysis.net_profit.toLocaleString()} so'm</p>
         </div>
       </div>
 
-      {/* Omborda tugayotgan mahsulotlar jadvali */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      {/* 2. NASIYA DAFTARI (Qarzlar) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {/* Bizga qarzlar */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex justify-between items-center mb-4 border-b pb-2">
+            <h3 className="text-xl font-bold text-gray-800">↗️ Nasiyaga Berilgan (Bizga qarzlar)</h3>
+            <span className="bg-green-100 text-green-800 font-bold px-3 py-1 rounded-full">
+              Jami: {stats.debts_receive.total.toLocaleString()} so'm
+            </span>
+          </div>
+          {stats.debts_receive.list.length === 0 ? (
+            <p className="text-gray-400 text-center py-4">Nasiyaga berilgan mahsulotlar yo'q.</p>
+          ) : (
+            <ul className="divide-y">
+              {stats.debts_receive.list.map((debt, idx) => (
+                <li key={idx} className="py-3 flex justify-between items-center">
+                  <div>
+                    <p className="font-bold text-gray-800">👤 {debt.customer || "Noma'lum mijoz"}</p>
+                    <p className="text-xs text-gray-400">{new Date(debt.date).toLocaleDateString()}</p>
+                  </div>
+                  <span className="font-bold text-red-500">{debt.amount.toLocaleString()} so'm</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Bizning qarzlar */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex justify-between items-center mb-4 border-b pb-2">
+            <h3 className="text-xl font-bold text-gray-800">↙️ Nasiyaga Olingan (Ta'minotchidan)</h3>
+            <span className="bg-red-100 text-red-800 font-bold px-3 py-1 rounded-full">
+              Jami: {stats.debts_pay.total.toLocaleString()} so'm
+            </span>
+          </div>
+          {stats.debts_pay.list.length === 0 ? (
+            <p className="text-gray-400 text-center py-4">Qarzga olingan mahsulotlar yo'q.</p>
+          ) : (
+            <ul className="divide-y">
+              {stats.debts_pay.list.map((debt, idx) => (
+                <li key={idx} className="py-3 flex justify-between items-center">
+                  <div>
+                    <p className="font-bold text-gray-800">🏢 {debt.supplier || "Noma'lum ta'minotchi"}</p>
+                    <p className="text-xs text-gray-500">📦 {debt.product}</p>
+                  </div>
+                  <span className="font-bold text-orange-500">{debt.amount.toLocaleString()} so'm</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* 3. LOW STOCK ALERTS */}
+      <div className="bg-white rounded-xl shadow-sm border border-red-100 p-6">
         <h3 className="text-xl font-bold mb-4 text-red-600 flex items-center gap-2">
-          ⚠️ Omborda tugayotgan mahsulotlar (10 tadan kam)
+          ⚠️ Omborda tugayotgan mahsulotlar (Alert)
         </h3>
 
         {stats.low_stock_items.length === 0 ? (
-          <p className="text-gray-500">Xavotirga o'rin yo'q, hamma mahsulotlar yetarli darajada.</p>
+          <p className="text-gray-500">Hamma mahsulotlar yetarli darajada.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">

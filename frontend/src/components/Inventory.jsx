@@ -5,10 +5,8 @@ import { t } from '../translations';
 const API_URL = 'http://127.0.0.1:8000';
 
 const Inventory = ({ lang }) => {
-  // Asosiy Tab uchun state
-  const [activeInvTab, setActiveInvTab] = useState('overview'); // 'overview' yoki 'receipt'
+  const [activeInvTab, setActiveInvTab] = useState('overview');
 
-  // Tovar Qabul Qilish statelari
   const [barcode, setBarcode] = useState('');
   const [step, setStep] = useState('scan');
   const [product, setProduct] = useState(null);
@@ -20,11 +18,11 @@ const Inventory = ({ lang }) => {
   const [isCredit, setIsCredit] = useState(false);
   const [supplierName, setSupplierName] = useState('');
 
-  // Ombor Qoldig'i (Overview) statelari
+  // Ombor Qoldig'i (Overview) va Hisobot statelari
   const [stockList, setStockList] = useState([]);
+  const [dashboardStats, setDashboardStats] = useState(null);
   const [loadingStock, setLoadingStock] = useState(false);
 
-  // Kategoriyalarni yuklash
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -40,22 +38,26 @@ const Inventory = ({ lang }) => {
     fetchCategories();
   }, []);
 
-  // Ombor qoldig'ini yuklash (Faqat 'overview' tab ochilganda)
+  // DIQQAT: Endi Ombor va To'lovlar (Dashboard) ma'lumotlarini birdaniga yuklaymiz
   useEffect(() => {
-    const fetchStock = async () => {
+    const fetchStockAndStats = async () => {
       setLoadingStock(true);
       try {
-        const res = await axios.get(`${API_URL}/inventory/`);
-        setStockList(res.data);
+        const [invRes, dashRes] = await Promise.all([
+          axios.get(`${API_URL}/inventory/`),
+          axios.get(`${API_URL}/reports/dashboard`)
+        ]);
+        setStockList(invRes.data);
+        setDashboardStats(dashRes.data);
       } catch (error) {
-        console.error("Error loading stock list", error);
+        console.error("Error loading data", error);
       } finally {
         setLoadingStock(false);
       }
     };
 
     if (activeInvTab === 'overview') {
-      fetchStock();
+      fetchStockAndStats();
     }
   }, [activeInvTab]);
 
@@ -144,15 +146,30 @@ const Inventory = ({ lang }) => {
     }
   };
 
-  // Ombor qoldig'i hisob-kitoblari
-  const cashStock = stockList.filter(item => !item.is_credit);
-  const creditStock = stockList.filter(item => item.is_credit);
+  // ================= HISOB-KITOB LOGIKASI =================
+  // 1. Qarzi 0 dan katta bo'lgan (hali to'liq yopilmagan) ta'minotchilar ro'yxatini aniqlash
+  const activeSuppliers = dashboardStats?.debts_pay?.list || [];
+  const activeSupplierNames = activeSuppliers.map(s => s.name);
+
+  // Haqiqiy qolgan qarz miqdori
+  const totalCreditDebt = activeSuppliers.reduce((sum, s) => sum + s.balance, 0);
+
+  // 2. Agar oldin Nasiyaga olingan bo'lsayu, lekin Qarzi nolga tushgan bo'lsa -> ular endi Cash (O'zimizniki)!
+  const cashStock = stockList.filter(item =>
+    !item.is_credit || (item.is_credit && !activeSupplierNames.includes(item.supplier_name))
+  );
+
+  // Faqat qarzi uzilmagan tovarlar "Nasiyaga Olingan" ro'yxatida qoladi
+  const creditStock = stockList.filter(item =>
+    item.is_credit && activeSupplierNames.includes(item.supplier_name)
+  );
 
   const calcTotalCost = (list) => list.reduce((sum, item) => sum + (item.quantity * item.cost_price), 0);
   const calcTotalRetail = (list) => list.reduce((sum, item) => sum + (item.quantity * item.selling_price), 0);
 
   const totalCostOverall = calcTotalCost(stockList);
   const totalRetailOverall = calcTotalRetail(stockList);
+  // =========================================================
 
   return (
     <div className="w-full pb-12">
@@ -191,7 +208,6 @@ const Inventory = ({ lang }) => {
             </div>
           ) : (
             <>
-              {/* Jami Ombor Qoldig'i Qiymati */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white p-5 rounded-sm shadow-sm border border-slate-200 border-l-4 border-l-blue-600">
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">{t[lang].totalCost}</p>
@@ -204,7 +220,7 @@ const Inventory = ({ lang }) => {
                 </div>
               </div>
 
-              {/* 1. Naqdga olingan tovarlar jadvali */}
+              {/* 1. Naqdga yoki To'liq to'langan tovarlar jadvali */}
               <div className="bg-white rounded-sm shadow-sm border border-slate-200 flex flex-col">
                 <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                   <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">{t[lang].cashStock}</h3>
@@ -243,12 +259,13 @@ const Inventory = ({ lang }) => {
                 </div>
               </div>
 
-              {/* 2. Nasiyaga olingan tovarlar jadvali */}
+              {/* 2. Hali to'liq uzilmagan Nasiya tovarlar jadvali */}
               <div className="bg-white rounded-sm shadow-sm border border-slate-200 flex flex-col">
                 <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                   <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">{t[lang].creditStock}</h3>
                   <span className="bg-orange-100 text-orange-800 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-sm">
-                    {t[lang].total}: {calcTotalCost(creditStock).toLocaleString()} UZS
+                    {/* Bu yerda faqat tovarlarning bazaviy narxi emas, balki haqiqiy qarz miqdori ko'rinadi */}
+                    {t[lang].total}: {totalCreditDebt.toLocaleString()} UZS
                   </span>
                 </div>
 
@@ -276,6 +293,16 @@ const Inventory = ({ lang }) => {
                             <td className="px-5 py-3 text-right font-bold text-orange-700 bg-orange-50/50">{(item.quantity * item.cost_price).toLocaleString()}</td>
                           </tr>
                         ))}
+
+                        {/* Qisman to'lovlar natijasida aniq qolgan qarz summasini ko'rsatish */}
+                        <tr className="bg-orange-100/50">
+                          <td colSpan="4" className="px-5 py-4 font-bold text-orange-800 text-right uppercase tracking-wide">
+                            {t[lang].remPayable}:
+                          </td>
+                          <td className="px-5 py-4 text-right font-black text-orange-900 text-lg border-t-2 border-orange-200">
+                            {totalCreditDebt.toLocaleString()}
+                          </td>
+                        </tr>
                       </tbody>
                     </table>
                   )}

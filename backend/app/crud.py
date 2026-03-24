@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime  # <--- Sana filtri uchun qo'shildi
-from . import models, schemas
+from datetime import datetime
+from . import models, schemas, auth
 
 
 def create_category(db: Session, category: schemas.CategoryCreate):
@@ -76,7 +76,6 @@ def create_sale(db: Session, sale_data: schemas.SaleCreate):
     db_sale.total_amount = total_amount
     db.commit()
     db.refresh(db_sale)
-
     return db_sale
 
 
@@ -94,15 +93,12 @@ def pay_supplier_debt(db: Session, payment: schemas.DebtPaymentCreate):
     return db_pay
 
 
-# --- BIZNES ANALITIKA (SANA FILTRI BILAN) ---
 def get_dashboard_stats(db: Session, start_date: str = None, end_date: str = None):
-    # Dastlab barcha jadvallar uchun so'rovlarni tayyorlab olamiz
     sales_query = db.query(models.Sale)
     inv_query = db.query(models.Inventory)
     cust_pay_query = db.query(models.CustomerPayment)
     supp_pay_query = db.query(models.SupplierPayment)
 
-    # Agar Boshlanish sanasi kiritilgan bo'lsa (soat 00:00:00 dan)
     if start_date:
         start_dt = datetime.strptime(f"{start_date} 00:00:00", "%Y-%m-%d %H:%M:%S")
         sales_query = sales_query.filter(models.Sale.created_at >= start_dt)
@@ -110,7 +106,6 @@ def get_dashboard_stats(db: Session, start_date: str = None, end_date: str = Non
         cust_pay_query = cust_pay_query.filter(models.CustomerPayment.created_at >= start_dt)
         supp_pay_query = supp_pay_query.filter(models.SupplierPayment.created_at >= start_dt)
 
-    # Agar Tugash sanasi kiritilgan bo'lsa (soat 23:59:59 gacha)
     if end_date:
         end_dt = datetime.strptime(f"{end_date} 23:59:59", "%Y-%m-%d %H:%M:%S")
         sales_query = sales_query.filter(models.Sale.created_at <= end_dt)
@@ -118,7 +113,6 @@ def get_dashboard_stats(db: Session, start_date: str = None, end_date: str = Non
         cust_pay_query = cust_pay_query.filter(models.CustomerPayment.created_at <= end_dt)
         supp_pay_query = supp_pay_query.filter(models.SupplierPayment.created_at <= end_dt)
 
-    # 1. P&L (Daromad, Xarajat va Sof Foyda)
     sales = sales_query.all()
     total_revenue = sum(sale.total_amount for sale in sales)
 
@@ -131,7 +125,6 @@ def get_dashboard_stats(db: Session, start_date: str = None, end_date: str = Non
     total_cogs = sum(item.cost_price * item.quantity for item in sale_items)
     net_profit = total_revenue - total_cogs
 
-    # 2. MIJOZLAR QARZI (Shu sanalar oralig'idagi o'zgarishlar)
     credit_sales = [s for s in sales if s.is_credit]
     customer_payments = cust_pay_query.all()
 
@@ -145,12 +138,11 @@ def get_dashboard_stats(db: Session, start_date: str = None, end_date: str = Non
         if name in customer_balances:
             customer_balances[name] -= pay.amount
         else:
-            customer_balances[name] = -pay.amount  # Agar qarzni oldin olganu, to'lovni hozir qilgan bo'lsa
+            customer_balances[name] = -pay.amount
 
     customer_debts = [{"name": k, "balance": v} for k, v in customer_balances.items() if v != 0]
     total_customer_debt = sum(d["balance"] for d in customer_debts)
 
-    # 3. TA'MINOTCHI QARZI
     inventories = inv_query.all()
     credit_invs = [i for i in inventories if i.is_credit]
     supplier_payments = supp_pay_query.all()
@@ -170,7 +162,6 @@ def get_dashboard_stats(db: Session, start_date: str = None, end_date: str = Non
     supplier_debts = [{"name": k, "balance": v} for k, v in supplier_balances.items() if v != 0]
     total_supplier_debt = sum(d["balance"] for d in supplier_debts)
 
-    # 4. Low stock (Bu har doim umumiy ombor holatini ko'rsatadi, sanaga bog'lanmaydi)
     low_stock_query = db.query(models.Inventory).filter(models.Inventory.quantity <= 10).all()
     low_stock_items = [
         {"product_name": item.product.name, "quantity": item.quantity, "selling_price": item.selling_price}
@@ -178,18 +169,22 @@ def get_dashboard_stats(db: Session, start_date: str = None, end_date: str = Non
     ]
 
     return {
-        "pl_analysis": {
-            "revenue": total_revenue,
-            "cogs": total_cogs,
-            "net_profit": net_profit
-        },
-        "debts_receive": {
-            "total": total_customer_debt,
-            "list": customer_debts
-        },
-        "debts_pay": {
-            "total": total_supplier_debt,
-            "list": supplier_debts
-        },
+        "pl_analysis": {"revenue": total_revenue, "cogs": total_cogs, "net_profit": net_profit},
+        "debts_receive": {"total": total_customer_debt, "list": customer_debts},
+        "debts_pay": {"total": total_supplier_debt, "list": supplier_debts},
         "low_stock_items": low_stock_items
     }
+
+
+# YANGI: Foydalanuvchilarni yaratish
+def get_user_by_username(db: Session, username: str):
+    return db.query(models.User).filter(models.User.username == username).first()
+
+
+def create_user(db: Session, user: schemas.UserCreate):
+    hashed_password = auth.get_password_hash(user.password)
+    db_user = models.User(username=user.username, hashed_password=hashed_password, role=user.role)
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user

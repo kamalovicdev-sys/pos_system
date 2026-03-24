@@ -1,16 +1,21 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
 
-# Ma'lumotlar bazasi fayli manzili
+# Ma'lumotlar bazasi manzili
 SQLALCHEMY_DATABASE_URL = "sqlite:///./pos_system.db"
 
-# SQLite uchun maxsus parametrlar bilan engine yaratish
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
 )
-
-# Har bir API so'rov uchun alohida sessiya ochish uchun
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Jadvallarni yaratish uchun asosiy klass
 Base = declarative_base()
+
+# MANA SHU FUNKSIYA YETISHMAYOTGAN EDI
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

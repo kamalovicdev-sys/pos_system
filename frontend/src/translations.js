@@ -4,7 +4,16 @@ export const t = {
     terminal: "Terminal",
     inventoryMenu: "Ombor Boshqaruvi",
     analyticsMenu: "Biznes Analitikasi",
-    userAdmin: "Foydalanuvchi: Tizim Admini",
+    userAdmin: "Foydalanuvchi:",
+    logout: "Tizimdan Chiqish",
+
+    // Login
+    authTitle: "Tizimga Kirish",
+    sysAccess: "Korporativ Boshqaruv Tizimi",
+    username: "Foydalanuvchi nomi",
+    password: "Maxfiy so'z",
+    signIn: "Kirish",
+    invalidCreds: "Login yoki maxfiy so'z noto'g'ri.",
 
     // Kassa
     salesProcessing: "Savdoni Rasmiylashtirish",
@@ -94,7 +103,15 @@ export const t = {
     terminal: "Terminal",
     inventoryMenu: "Inventory Management",
     analyticsMenu: "Business Analytics",
-    userAdmin: "User: System Admin",
+    userAdmin: "User:",
+    logout: "Sign Out",
+
+    authTitle: "System Authentication",
+    sysAccess: "Enterprise Management System",
+    username: "Username",
+    password: "Password",
+    signIn: "Log In",
+    invalidCreds: "Invalid username or password.",
 
     salesProcessing: "Sales Processing",
     barcodeEntry: "Barcode Entry",
@@ -181,7 +198,15 @@ export const t = {
     terminal: "Терминал",
     inventoryMenu: "Управление Запасами",
     analyticsMenu: "Бизнес-Аналитика",
-    userAdmin: "Пользователь: Системный Админ",
+    userAdmin: "Пользователь:",
+    logout: "Выход",
+
+    authTitle: "Авторизация",
+    sysAccess: "Система Управления Предприятием",
+    username: "Имя пользователя",
+    password: "Пароль",
+    signIn: "Войти",
+    invalidCreds: "Неверное имя пользователя или пароль.",
 
     salesProcessing: "Оформление Продажи",
     barcodeEntry: "Ввод Штрих-кода",

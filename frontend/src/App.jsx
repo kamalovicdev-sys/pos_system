@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { t } from './translations';
+import Login from './components/Login';
 import Receipt from './components/Receipt';
 import Dashboard from './components/Dashboard';
 import Inventory from './components/Inventory';
@@ -8,9 +9,12 @@ import Inventory from './components/Inventory';
 const API_URL = 'http://127.0.0.1:8000';
 
 function App() {
-  const [lang, setLang] = useState('uz'); // Default til
-  const [activeTab, setActiveTab] = useState('pos');
+  const [lang, setLang] = useState('uz');
 
+  // AVTORIZATSIYA UCHUN STATE (Xotiradan o'qib oladi)
+  const [token, setToken] = useState(localStorage.getItem('pos_token') || null);
+
+  const [activeTab, setActiveTab] = useState('pos');
   const [cart, setCart] = useState([]);
   const [barcode, setBarcode] = useState('');
   const [total, setTotal] = useState(0);
@@ -21,11 +25,22 @@ function App() {
 
   const barcodeInputRef = useRef(null);
 
+  // HAR QANDAY O'ZGARIShDA TOKENNI AXIOS GA YOPISHTIRISH VA XOTIRAGA SAQLASH
   useEffect(() => {
-    if (activeTab === 'pos') {
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      localStorage.setItem('pos_token', token);
+    } else {
+      delete axios.defaults.headers.common['Authorization'];
+      localStorage.removeItem('pos_token');
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (activeTab === 'pos' && token) {
       barcodeInputRef.current?.focus();
     }
-  }, [cart, activeTab]);
+  }, [cart, activeTab, token]);
 
   useEffect(() => {
     const newTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -41,6 +56,12 @@ function App() {
     }
   }, [receiptData]);
 
+  // TIZIMDAN CHIQISH
+  const handleLogout = () => {
+    setToken(null);
+    setCart([]);
+  };
+
   const handleScan = async (e) => {
     e.preventDefault();
     if (!barcode.trim()) return;
@@ -51,27 +72,23 @@ function App() {
 
       setCart(prevCart => {
         const existingItem = prevCart.find(item => item.product_id === product.id);
-
         if (existingItem) {
           return prevCart.map(item =>
-            item.product_id === product.id
-              ? { ...item, quantity: item.quantity + 1 }
-              : item
+            item.product_id === product.id ? { ...item, quantity: item.quantity + 1 } : item
           );
         } else {
-          return [...prevCart, {
-            product_id: product.id,
-            name: product.name,
-            price: product.price,
-            quantity: 1
-          }];
+          return [...prevCart, { product_id: product.id, name: product.name, price: product.price, quantity: 1 }];
         }
       });
-
       setBarcode('');
     } catch (error) {
-      alert(t[lang].matNotFound);
-      setBarcode('');
+      // Agar tokenni vaqti tugagan bo'lsa (401), tizimdan chiqarib yuboramiz
+      if (error.response && error.response.status === 401) {
+        handleLogout();
+      } else {
+        alert(t[lang].matNotFound);
+        setBarcode('');
+      }
     }
   };
 
@@ -80,7 +97,6 @@ function App() {
       alert(t[lang].cartEmpty);
       return;
     }
-
     if (isCredit && !customerName.trim()) {
       alert(t[lang].custReq);
       return;
@@ -90,29 +106,32 @@ function App() {
       payment_type: paymentType,
       is_credit: isCredit,
       customer_name: customerName,
-      items: cart.map(item => ({
-        product_id: item.product_id,
-        quantity: item.quantity
-      }))
+      items: cart.map(item => ({ product_id: item.product_id, quantity: item.quantity }))
     };
 
     try {
       const response = await axios.post(`${API_URL}/sales/`, saleData);
       setReceiptData(response.data);
-
       setCart([]);
       setBarcode('');
       setIsCredit(false);
       setCustomerName('');
-
       if (activeTab === 'pos') barcodeInputRef.current?.focus();
-
     } catch (error) {
-      console.error("Checkout error:", error);
-      alert(t[lang].transFailed);
+      if (error.response && error.response.status === 401) {
+        handleLogout();
+      } else {
+        alert(t[lang].transFailed);
+      }
     }
   };
 
+  // AGAR TOKEN YO'Q BO'LSA, LOGIN OYNASINI KO'RSATAMIZ
+  if (!token) {
+    return <Login setToken={setToken} lang={lang} setLang={setLang} />;
+  }
+
+  // AGAR TOKEN BOR BO'LSA, ASOSIY DASTUR OCHILADI
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
 
@@ -127,34 +146,13 @@ function App() {
               </span>
 
               <div className="flex space-x-1">
-                <button
-                  onClick={() => setActiveTab('pos')}
-                  className={`px-4 py-4 text-xs font-semibold tracking-wide uppercase transition-colors duration-150 ${
-                    activeTab === 'pos' 
-                      ? 'bg-slate-800 text-white border-b-2 border-blue-500' 
-                      : 'hover:bg-slate-800 hover:text-white'
-                  }`}
-                >
+                <button onClick={() => setActiveTab('pos')} className={`px-4 py-4 text-xs font-semibold tracking-wide uppercase transition-colors duration-150 ${activeTab === 'pos' ? 'bg-slate-800 text-white border-b-2 border-blue-500' : 'hover:bg-slate-800 hover:text-white'}`}>
                   {t[lang].terminal}
                 </button>
-                <button
-                  onClick={() => setActiveTab('inventory')}
-                  className={`px-4 py-4 text-xs font-semibold tracking-wide uppercase transition-colors duration-150 ${
-                    activeTab === 'inventory' 
-                      ? 'bg-slate-800 text-white border-b-2 border-blue-500' 
-                      : 'hover:bg-slate-800 hover:text-white'
-                  }`}
-                >
+                <button onClick={() => setActiveTab('inventory')} className={`px-4 py-4 text-xs font-semibold tracking-wide uppercase transition-colors duration-150 ${activeTab === 'inventory' ? 'bg-slate-800 text-white border-b-2 border-blue-500' : 'hover:bg-slate-800 hover:text-white'}`}>
                   {t[lang].inventoryMenu}
                 </button>
-                <button
-                  onClick={() => setActiveTab('dashboard')}
-                  className={`px-4 py-4 text-xs font-semibold tracking-wide uppercase transition-colors duration-150 ${
-                    activeTab === 'dashboard' 
-                      ? 'bg-slate-800 text-white border-b-2 border-blue-500' 
-                      : 'hover:bg-slate-800 hover:text-white'
-                  }`}
-                >
+                <button onClick={() => setActiveTab('dashboard')} className={`px-4 py-4 text-xs font-semibold tracking-wide uppercase transition-colors duration-150 ${activeTab === 'dashboard' ? 'bg-slate-800 text-white border-b-2 border-blue-500' : 'hover:bg-slate-800 hover:text-white'}`}>
                   {t[lang].analyticsMenu}
                 </button>
               </div>
@@ -168,7 +166,18 @@ function App() {
                 <button onClick={() => setLang('ru')} className={`px-2.5 py-1 text-[10px] font-bold tracking-wider border-l border-slate-700 ${lang === 'ru' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}>RU</button>
               </div>
 
-              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{t[lang].userAdmin}</span>
+              <div className="flex items-center gap-4 border-l border-slate-700 pl-6">
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                  {t[lang].userAdmin} <span className="text-white font-bold ml-1">Admin</span>
+                </span>
+
+                <button
+                  onClick={handleLogout}
+                  className="text-[10px] font-bold uppercase tracking-wider bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white px-3 py-1.5 rounded-sm transition-colors"
+                >
+                  {t[lang].logout}
+                </button>
+              </div>
             </div>
 
           </div>
@@ -178,7 +187,7 @@ function App() {
       {/* MAIN CONTENT AREA */}
       <main className="max-w-screen-2xl mx-auto p-4 print:hidden">
 
-        {/* 1. KASSA OYNASI (POS TERMINAL) */}
+        {/* 1. KASSA OYNASI */}
         {activeTab === 'pos' && (
           <div className="flex gap-4">
 
@@ -313,12 +322,12 @@ function App() {
           </div>
         )}
 
-        {/* 2. OMBOR (INVENTORY) */}
+        {/* 2. OMBOR */}
         {activeTab === 'inventory' && (
           <Inventory lang={lang} />
         )}
 
-        {/* 3. BIZNES ANALITIKA (DASHBOARD) */}
+        {/* 3. BIZNES ANALITIKA */}
         {activeTab === 'dashboard' && (
           <Dashboard lang={lang} />
         )}

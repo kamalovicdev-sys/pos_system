@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { t } from '../translations';
 
 const API_URL = 'http://127.0.0.1:8000';
 
-const Inventory = () => {
+const Inventory = ({ lang }) => {
   const [barcode, setBarcode] = useState('');
   const [step, setStep] = useState('scan');
   const [product, setProduct] = useState(null);
@@ -58,7 +59,7 @@ const Inventory = () => {
       if (error.response && error.response.status === 404) {
         setStep('new_product');
       } else {
-        alert("System error. Check server connection.");
+        alert(t[lang].transFailed);
       }
     }
   };
@@ -66,7 +67,7 @@ const Inventory = () => {
   const handleCreateProduct = async (e) => {
     e.preventDefault();
     if (!barcode.trim()) {
-      alert("Barcode is required.");
+      alert(t[lang].barcodeReq);
       return;
     }
 
@@ -80,11 +81,7 @@ const Inventory = () => {
       setProduct(res.data);
       setStep('add_inventory');
     } catch (error) {
-      if (error.response && error.response.status === 400) {
-        alert("Barcode already exists in the master data.");
-      } else {
-        alert("Product registration failed.");
-      }
+      alert(t[lang].transFailed);
     }
   };
 
@@ -92,7 +89,7 @@ const Inventory = () => {
     e.preventDefault();
 
     if (isCredit && !supplierName.trim()) {
-      alert("Supplier/Vendor name is required for credit transactions.");
+      alert(t[lang].vendorReq);
       return;
     }
 
@@ -106,7 +103,7 @@ const Inventory = () => {
         supplier_name: supplierName
       });
 
-      alert(`Goods Receipt posted successfully for: ${product.name}`);
+      alert(`${t[lang].invSuccess} ${product.name}`);
 
       setBarcode('');
       setProduct(null);
@@ -115,31 +112,30 @@ const Inventory = () => {
       setSupplierName('');
       setStep('scan');
     } catch (error) {
-      alert("Inventory posting failed.");
+      alert(t[lang].transFailed);
     }
   };
 
   return (
     <div className="w-full max-w-4xl mx-auto pb-12">
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-slate-800 uppercase tracking-wide">Inventory Management</h2>
-        <p className="text-sm text-slate-500">Goods Receipt & Master Data Registration</p>
+        <h2 className="text-xl font-bold text-slate-800 uppercase tracking-wide">{t[lang].invTitle}</h2>
+        <p className="text-sm text-slate-500">{t[lang].invSubtitle}</p>
       </div>
 
       <div className="bg-white border border-slate-200 shadow-sm rounded-sm">
 
-        {/* ================= STEP 1: SCAN OR ADD ================= */}
         {step === 'scan' && (
           <div className="p-8">
             <div className="flex justify-between items-end mb-6">
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Material Barcode Lookup
+                {t[lang].lookup}
               </label>
               <button
                 onClick={() => { setBarcode(''); setStep('new_product'); }}
                 className="text-xs font-semibold text-blue-600 hover:text-blue-800 uppercase tracking-wide transition-colors"
               >
-                + Register New Material
+                {t[lang].regNew}
               </button>
             </div>
 
@@ -148,47 +144,46 @@ const Inventory = () => {
                 type="text"
                 value={barcode}
                 onChange={(e) => setBarcode(e.target.value)}
-                placeholder="Enter or scan barcode..."
+                placeholder={t[lang].barcodePlaceholder}
                 className="flex-1 p-3 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 focus:border-blue-600 outline-none"
                 autoFocus
               />
               <button type="submit" className="bg-slate-800 hover:bg-slate-900 text-white font-semibold text-sm px-8 py-3 rounded-sm transition-colors">
-                Execute
+                {t[lang].execute}
               </button>
             </form>
           </div>
         )}
 
-        {/* ================= STEP 2: NEW PRODUCT ================= */}
         {step === 'new_product' && (
           <form onSubmit={handleCreateProduct} className="p-8">
             <div className="border-b border-slate-200 pb-4 mb-6">
-              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Create Material Master Record</h3>
+              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">{t[lang].createMaster}</h3>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Material Number / Barcode</label>
-                <input required type="text" value={barcode} onChange={e => setBarcode(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-300 text-slate-900 text-sm font-mono rounded-sm focus:ring-1 focus:ring-blue-600 outline-none" placeholder="E.g., 123456789" />
+                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">{t[lang].matNum}</label>
+                <input required type="text" value={barcode} onChange={e => setBarcode(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-300 text-slate-900 text-sm font-mono rounded-sm focus:ring-1 focus:ring-blue-600 outline-none" placeholder={t[lang].matNumPlaceholder} />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Material Description</label>
-                <input required type="text" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 outline-none" placeholder="E.g., Premium Widget" />
+                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">{t[lang].matDesc}</label>
+                <input required type="text" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 outline-none" />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-6 mb-8">
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Base Unit of Measure</label>
+                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">{t[lang].baseUnit}</label>
                 <select value={newProduct.unit} onChange={e => setNewProduct({...newProduct, unit: e.target.value})} className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 outline-none">
-                  <option value="dona">Piece (PC)</option>
-                  <option value="kg">Kilogram (KG)</option>
-                  <option value="litr">Liter (L)</option>
+                  <option value="dona">{t[lang].pc}</option>
+                  <option value="kg">{t[lang].kg}</option>
+                  <option value="litr">{t[lang].litr}</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Material Group (Category)</label>
+                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">{t[lang].matGroup}</label>
                 {isAddingCategory ? (
                   <div className="flex gap-2">
                     <input
@@ -196,11 +191,11 @@ const Inventory = () => {
                       value={newCategoryName}
                       onChange={e => setNewCategoryName(e.target.value)}
                       className="flex-1 p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 outline-none"
-                      placeholder="Category name..."
+                      placeholder={t[lang].catPlaceholder}
                       autoFocus
                     />
-                    <button type="button" onClick={handleCreateCategory} className="bg-slate-800 hover:bg-slate-900 text-white px-4 text-xs font-semibold rounded-sm">Save</button>
-                    <button type="button" onClick={() => setIsAddingCategory(false)} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-4 text-xs font-semibold rounded-sm">Cancel</button>
+                    <button type="button" onClick={handleCreateCategory} className="bg-slate-800 hover:bg-slate-900 text-white px-4 text-xs font-semibold rounded-sm">{t[lang].save}</button>
+                    <button type="button" onClick={() => setIsAddingCategory(false)} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-4 text-xs font-semibold rounded-sm">{t[lang].cancel}</button>
                   </div>
                 ) : (
                   <div className="flex gap-2">
@@ -208,58 +203,51 @@ const Inventory = () => {
                       {categories.map(cat => (
                         <option key={cat.id} value={cat.id}>{cat.name}</option>
                       ))}
-                      {categories.length === 0 && <option value="">No Groups Found</option>}
+                      {categories.length === 0 && <option value="">{t[lang].noGroups}</option>}
                     </select>
-                    <button type="button" onClick={() => setIsAddingCategory(true)} className="bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 px-3 rounded-sm font-bold text-sm" title="New Category">+</button>
+                    <button type="button" onClick={() => setIsAddingCategory(true)} className="bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 px-3 rounded-sm font-bold text-sm">+</button>
                   </div>
                 )}
               </div>
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-              <button type="button" onClick={() => { setStep('scan'); setBarcode(''); setIsAddingCategory(false); }} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold text-sm px-6 py-2.5 rounded-sm transition-colors">Cancel</button>
-              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-6 py-2.5 rounded-sm transition-colors">Save & Proceed</button>
+              <button type="button" onClick={() => { setStep('scan'); setBarcode(''); setIsAddingCategory(false); }} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold text-sm px-6 py-2.5 rounded-sm transition-colors">{t[lang].cancel}</button>
+              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-6 py-2.5 rounded-sm transition-colors">{t[lang].saveProceed}</button>
             </div>
           </form>
         )}
 
-        {/* ================= STEP 3: GOODS RECEIPT ================= */}
         {step === 'add_inventory' && product && (
           <form onSubmit={handleAddInventory} className="p-8">
             <div className="border-b border-slate-200 pb-4 mb-6">
-              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Post Goods Receipt</h3>
+              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">{t[lang].postGr}</h3>
             </div>
 
             <div className="bg-slate-50 p-4 border border-slate-200 rounded-sm flex justify-between items-center mb-6">
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Target Material</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{t[lang].targetMat}</p>
                 <p className="text-lg font-bold text-slate-800">{product.name}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Material No.</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{t[lang].matNo}</p>
                 <span className="font-mono text-sm font-semibold text-slate-700">{product.barcode}</span>
               </div>
             </div>
 
             <div className="mb-6">
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Receipt Quantity ({product.unit})</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">{t[lang].recQty} ({product.unit})</label>
               <input required type="number" step="0.01" value={inventoryData.quantity} onChange={e => setInventoryData({...inventoryData, quantity: e.target.value})} className="w-full p-3 bg-white border border-slate-300 text-slate-900 text-lg font-semibold rounded-sm focus:ring-1 focus:ring-blue-600 outline-none" placeholder="0.00" autoFocus />
             </div>
 
             <div className="grid grid-cols-2 gap-6 mb-6">
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Unit Cost (Moving Average)</label>
-                <div className="relative">
-                  <input required type="number" value={inventoryData.cost_price} onChange={e => setInventoryData({...inventoryData, cost_price: e.target.value})} className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 outline-none pr-12" placeholder="0" />
-                  <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">UZS</span>
-                </div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">{t[lang].unitCost}</label>
+                <input required type="number" value={inventoryData.cost_price} onChange={e => setInventoryData({...inventoryData, cost_price: e.target.value})} className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 outline-none" placeholder="0" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Standard Sales Price</label>
-                <div className="relative">
-                  <input required type="number" value={inventoryData.selling_price} onChange={e => setInventoryData({...inventoryData, selling_price: e.target.value})} className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 outline-none pr-12" placeholder="0" />
-                  <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400">UZS</span>
-                </div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">{t[lang].stdPrice}</label>
+                <input required type="number" value={inventoryData.selling_price} onChange={e => setInventoryData({...inventoryData, selling_price: e.target.value})} className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 outline-none" placeholder="0" />
               </div>
             </div>
 
@@ -271,17 +259,17 @@ const Inventory = () => {
                   onChange={(e) => setIsCredit(e.target.checked)}
                   className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded-sm focus:ring-blue-500"
                 />
-                <span className="text-sm font-semibold text-slate-700">Vendor Credit / Accounts Payable</span>
+                <span className="text-sm font-semibold text-slate-700">{t[lang].vendorCredit}</span>
               </label>
 
               {isCredit && (
                 <div className="mt-4 border-t border-slate-100 pt-4">
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Vendor Name / ID</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">{t[lang].vendorName}</label>
                   <input
                     type="text"
                     value={supplierName}
                     onChange={(e) => setSupplierName(e.target.value)}
-                    placeholder="Enter Vendor Details"
+                    placeholder={t[lang].vendorPlaceholder}
                     className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 text-sm rounded-sm focus:ring-1 focus:ring-blue-600 outline-none"
                   />
                 </div>
@@ -289,8 +277,8 @@ const Inventory = () => {
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-              <button type="button" onClick={() => {setStep('scan'); setBarcode('');}} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold text-sm px-6 py-2.5 rounded-sm transition-colors">Cancel Posting</button>
-              <button type="submit" className="bg-slate-800 hover:bg-slate-900 text-white font-semibold text-sm px-6 py-2.5 rounded-sm transition-colors">Post Document</button>
+              <button type="button" onClick={() => {setStep('scan'); setBarcode('');}} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold text-sm px-6 py-2.5 rounded-sm transition-colors">{t[lang].cancelPost}</button>
+              <button type="submit" className="bg-slate-800 hover:bg-slate-900 text-white font-semibold text-sm px-6 py-2.5 rounded-sm transition-colors">{t[lang].postDoc}</button>
             </div>
           </form>
         )}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { t } from '../translations';
 
@@ -6,15 +6,33 @@ const API_URL = 'http://127.0.0.1:8000';
 
 const Dashboard = ({ lang }) => {
   const [stats, setStats] = useState(null);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
 
-  const fetchStats = async (start = startDate, end = endDate) => {
+  // Kalendar oynasi uchun statelar
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const calendarRef = useRef(null);
+
+  // Tanlangan sanalar (Date obyektlari)
+  const [selStart, setSelStart] = useState(null);
+  const [selEnd, setSelEnd] = useState(null);
+
+  // Kalendar ko'rsatayotgan oy/yil (Navigation uchun)
+  const [viewDate, setViewDate] = useState(new Date());
+
+  // Sana formati yordamchisi (YYYY-MM-DD backend uchun)
+  const formatDate = (date) => {
+    if (!date) return '';
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const fetchStats = async (start = selStart, end = selEnd) => {
     try {
       const response = await axios.get(`${API_URL}/reports/dashboard`, {
         params: {
-          start_date: start || null,
-          end_date: end || null
+          start_date: start ? formatDate(start) : null,
+          end_date: end ? formatDate(end) : null
         }
       });
       setStats(response.data);
@@ -28,101 +46,199 @@ const Dashboard = ({ lang }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Tashqariga bosganda kalendarni yopish
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (calendarRef.current && !calendarRef.current.contains(event.target)) {
+        setIsCalendarOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const clearFilter = () => {
-    setStartDate('');
-    setEndDate('');
+    setSelStart(null);
+    setSelEnd(null);
     fetchStats(null, null);
   };
+
+  const applyFilter = () => {
+    fetchStats();
+    setIsCalendarOpen(false);
+  };
+
+  // ===================== KALENDAR LOGIKASI =====================
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+
+  // Oyda necha kun borligi va birinchi kun qaysi haftaga to'g'ri kelishi
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayIndex = new Date(year, month, 1).getDay();
+  const startDay = firstDayIndex === 0 ? 6 : firstDayIndex - 1; // Dushanba=0 qilish uchun
+
+  const prevMonth = () => setViewDate(new Date(year, month - 1, 1));
+  const nextMonth = () => setViewDate(new Date(year, month + 1, 1));
+
+  const onDayClick = (day) => {
+    const clickedDate = new Date(year, month, day);
+
+    // Agar hech narsa tanlanmagan bo'lsa yoki allaqachon ikkalasi tanlangan bo'lsa -> Yangidan boshlash
+    if (!selStart || (selStart && selEnd)) {
+      setSelStart(clickedDate);
+      setSelEnd(null);
+    }
+    // Agar Start tanlangan va End tanlanmagan bo'lsa
+    else {
+      if (clickedDate < selStart) {
+        setSelEnd(selStart);
+        setSelStart(clickedDate);
+      } else {
+        setSelEnd(clickedDate);
+      }
+    }
+  };
+
+  const isSelected = (day) => {
+    const date = new Date(year, month, day).getTime();
+    const startObj = selStart ? new Date(selStart.getFullYear(), selStart.getMonth(), selStart.getDate()).getTime() : null;
+    const endObj = selEnd ? new Date(selEnd.getFullYear(), selEnd.getMonth(), selEnd.getDate()).getTime() : null;
+
+    return date === startObj || date === endObj;
+  };
+
+  const isBetween = (day) => {
+    if (!selStart || !selEnd) return false;
+    const date = new Date(year, month, day).getTime();
+    const startObj = new Date(selStart.getFullYear(), selStart.getMonth(), selStart.getDate()).getTime();
+    const endObj = new Date(selEnd.getFullYear(), selEnd.getMonth(), selEnd.getDate()).getTime();
+    return date > startObj && date < endObj;
+  };
+  // =============================================================
 
   const handlePayCustomer = async (name, currentBalance) => {
     const amountStr = window.prompt(`${name}\n${t[lang].promptCust}`);
     if (!amountStr) return;
-
     const amount = parseFloat(amountStr);
-    if (isNaN(amount) || amount <= 0) {
-      alert(t[lang].invalidAmount);
-      return;
-    }
-
+    if (isNaN(amount) || amount <= 0) { alert(t[lang].invalidAmount); return; }
     try {
       await axios.post(`${API_URL}/debts/customer/pay`, { name: name, amount: amount });
-      alert(t[lang].paymentSuccess);
-      fetchStats();
-    } catch (error) {
-      alert(t[lang].transFailed);
-    }
+      alert(t[lang].paymentSuccess); fetchStats();
+    } catch (error) { alert(t[lang].transFailed); }
   };
 
   const handlePaySupplier = async (name, currentBalance) => {
     const amountStr = window.prompt(`${name}\n${t[lang].promptSupp}`);
     if (!amountStr) return;
-
     const amount = parseFloat(amountStr);
-    if (isNaN(amount) || amount <= 0) {
-      alert(t[lang].invalidAmount);
-      return;
-    }
-
+    if (isNaN(amount) || amount <= 0) { alert(t[lang].invalidAmount); return; }
     try {
       await axios.post(`${API_URL}/debts/supplier/pay`, { name: name, amount: amount });
-      alert(t[lang].paymentSuccess);
-      fetchStats();
-    } catch (error) {
-      alert(t[lang].transFailed);
-    }
+      alert(t[lang].paymentSuccess); fetchStats();
+    } catch (error) { alert(t[lang].transFailed); }
   };
 
-  if (!stats) return (
-    <div className="p-12 text-center text-sm font-semibold text-slate-500 uppercase tracking-wide">
-      {t[lang].loading}
-    </div>
-  );
+  if (!stats) return <div className="p-12 text-center text-sm font-semibold text-slate-500 uppercase tracking-wide">{t[lang].loading}</div>;
 
   return (
-    <div className="w-full pb-12">
+    <div className="w-full pb-12 relative">
 
-      {/* HEADER & FILTERS */}
+      {/* HEADER & CALENDAR FILTER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-slate-200 pb-4">
         <div>
           <h2 className="text-xl font-bold text-slate-800 uppercase tracking-wide">{t[lang].finOverview}</h2>
           <p className="text-sm text-slate-500">{t[lang].plManage}</p>
         </div>
 
-        <div className="flex flex-wrap items-center bg-white border border-slate-200 rounded-sm shadow-sm px-2 py-1.5">
-          <div className="flex items-center px-3 gap-2">
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{t[lang].validFrom}</span>
-            <input
-              type="date"
-              value={startDate}
-              onChange={e => setStartDate(e.target.value)}
-              className="outline-none text-xs text-slate-800 font-semibold bg-transparent"
-            />
-          </div>
-          <div className="h-4 w-px bg-slate-300 mx-1"></div>
-          <div className="flex items-center px-3 gap-2">
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{t[lang].validTo}</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={e => setEndDate(e.target.value)}
-              className="outline-none text-xs text-slate-800 font-semibold bg-transparent"
-            />
-          </div>
+        {/* ZAMONAVIY KALENDAR POP-UP TIZIMI */}
+        <div className="relative" ref={calendarRef}>
+          <div className="flex items-center gap-3">
 
-          <button
-            onClick={() => fetchStats()}
-            className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-1.5 rounded-sm font-semibold text-xs ml-2 transition-colors"
-          >
-            {t[lang].applyFilter}
-          </button>
+            {/* Tanlangan Sana Yozuvi (Badge) */}
+            {selStart && (
+              <div className="bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-sm flex items-center gap-3 shadow-sm animate-fade-in">
+                <span className="text-[10px] font-bold text-blue-800 tracking-widest uppercase">
+                  {formatDate(selStart)}
+                  {selEnd && selEnd.getTime() !== selStart.getTime() && <><span className="text-blue-400 mx-1">—</span> {formatDate(selEnd)}</>}
+                </span>
+                <button
+                  onClick={clearFilter}
+                  className="text-blue-400 hover:text-blue-800 transition-colors text-xs font-black"
+                >✕</button>
+              </div>
+            )}
 
-          {(startDate || endDate) && (
             <button
-              onClick={clearFilter}
-              className="text-slate-400 hover:text-slate-700 px-3 text-sm font-bold transition-colors"
+              onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+              className="bg-slate-800 hover:bg-slate-900 text-white px-5 py-2 rounded-sm font-bold text-xs uppercase tracking-wider transition-colors shadow-sm"
             >
-              ✕
+              {t[lang].calendar}
             </button>
+          </div>
+
+          {/* KALENDAR OYNASI */}
+          {isCalendarOpen && (
+            <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 shadow-2xl rounded-sm z-50 p-5 animate-fade-in">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide mb-4 border-b border-slate-100 pb-2">
+                {t[lang].selectDateRange}
+              </h4>
+
+              <div className="flex flex-col gap-2">
+                {/* Kalendar Headeri (Oy va Yilni o'zgartirish) */}
+                <div className="flex justify-between items-center mb-4 px-2">
+                  <button onClick={prevMonth} className="text-slate-400 hover:text-slate-800 text-lg font-bold">‹</button>
+                  <span className="text-sm font-bold text-slate-800 uppercase tracking-wide">
+                    {t[lang].months[month]} {year}
+                  </span>
+                  <button onClick={nextMonth} className="text-slate-400 hover:text-slate-800 text-lg font-bold">›</button>
+                </div>
+
+                {/* Hafta kunlari */}
+                <div className="grid grid-cols-7 gap-1 mb-2 text-center">
+                  {t[lang].weekDays.map(day => (
+                    <div key={day} className="text-[10px] font-bold text-slate-400 uppercase">{day}</div>
+                  ))}
+                </div>
+
+                {/* Kunlar to'ri (Grid) */}
+                <div className="grid grid-cols-7 gap-1 text-center">
+                  {/* Oy boshidagi bo'sh kataklar */}
+                  {Array.from({ length: startDay }).map((_, i) => (
+                    <div key={`empty-${i}`} className="p-2"></div>
+                  ))}
+
+                  {/* Haqiqiy kunlar */}
+                  {Array.from({ length: daysInMonth }).map((_, i) => {
+                    const day = i + 1;
+                    const selected = isSelected(day);
+                    const between = isBetween(day);
+
+                    return (
+                      <button
+                        key={day}
+                        onClick={() => onDayClick(day)}
+                        className={`
+                          p-2 text-xs font-semibold rounded-sm transition-all
+                          ${selected ? 'bg-blue-600 text-white shadow-md' : ''}
+                          ${between ? 'bg-blue-50 text-blue-800' : ''}
+                          ${!selected && !between ? 'bg-white text-slate-700 hover:bg-slate-100 border border-transparent hover:border-slate-200' : ''}
+                        `}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={applyFilter}
+                  disabled={!selStart}
+                  className={`w-full mt-4 py-2.5 text-xs font-bold uppercase tracking-widest rounded-sm transition-colors shadow-sm ${selStart ? 'bg-slate-800 hover:bg-slate-900 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+                >
+                  {t[lang].applyFilter}
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>

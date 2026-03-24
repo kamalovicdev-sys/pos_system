@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import timedelta
 from . import models, schemas, crud, auth
-from .database import engine, get_db # <--- get_db endi to'g'ri joydan kelyapti
+from .database import engine, get_db
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -19,10 +19,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Tizim yonganda Default Admin yaratish
 @app.on_event("startup")
 def create_default_admin():
-    # Endi get_db() generator bo'lgani uchun uni to'g'ri chaqiramiz
     db = next(get_db())
     admin = crud.get_user_by_username(db, "admin")
     if not admin:
@@ -31,7 +29,6 @@ def create_default_admin():
         print("DIQQAT: Default admin yaratildi! Login: admin, Parol: password123")
     db.close()
 
-# --- LOGIN (TOKEN OLISH) API ---
 @app.post("/login", response_model=schemas.Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = crud.get_user_by_username(db, username=form_data.username)
@@ -47,7 +44,6 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-# --- BARCHA API'LAR HIMOYALANDI ---
 @app.get("/")
 def read_root():
     return {"status": "Secure Enterprise API is running"}
@@ -82,6 +78,11 @@ def scan_product(barcode: str, db: Session = Depends(get_db), current_user: mode
 @app.post("/inventory/", response_model=schemas.Inventory)
 def add_to_inventory(inventory: schemas.InventoryCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     return crud.create_inventory(db=db, inventory=inventory)
+
+# YANGI: Ombordagi bor tovarlarni qaytarish
+@app.get("/inventory/", response_model=list[schemas.InventoryResponse])
+def get_inventory_data(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    return crud.get_inventory_list(db)
 
 @app.post("/sales/", response_model=schemas.SaleResponse)
 def checkout(sale: schemas.SaleCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):

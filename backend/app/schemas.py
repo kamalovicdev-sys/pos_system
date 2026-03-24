@@ -42,6 +42,15 @@ class Inventory(InventoryBase):
     supplier_name: Optional[str] = None
     model_config = {"from_attributes": True}
 
+# YANGI: Ombor qoldiqlarini nomi bilan qaytarish uchun sxema
+class InventoryResponse(InventoryBase):
+    id: int
+    created_at: datetime
+    is_credit: bool
+    supplier_name: Optional[str] = None
+    product: Product
+    model_config = {"from_attributes": True}
+
 class SaleItemCreate(BaseModel):
     product_id: int
     quantity: float
@@ -73,7 +82,6 @@ class DebtPaymentCreate(BaseModel):
     name: str
     amount: float
 
-# YANGI: Xavfsizlik sxemalari
 class Token(BaseModel):
     access_token: str
     token_type: str

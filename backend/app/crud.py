@@ -36,6 +36,11 @@ def create_inventory(db: Session, inventory: schemas.InventoryCreate):
     return db_inventory
 
 
+# YANGI: Ombor qoldiqlarini tortib kelish
+def get_inventory_list(db: Session):
+    return db.query(models.Inventory).filter(models.Inventory.quantity > 0).order_by(models.Inventory.id.desc()).all()
+
+
 def create_sale(db: Session, sale_data: schemas.SaleCreate):
     db_sale = models.Sale(
         payment_type=sale_data.payment_type,
@@ -176,7 +181,6 @@ def get_dashboard_stats(db: Session, start_date: str = None, end_date: str = Non
     }
 
 
-# YANGI: Foydalanuvchilarni yaratish
 def get_user_by_username(db: Session, username: str):
     return db.query(models.User).filter(models.User.username == username).first()
 
